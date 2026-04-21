@@ -422,11 +422,21 @@
       <div class="space-y-3">
         <div>
           <label class="label">Usuario</label>
-          <input x-model="login.usuario" @keydown.enter="if(login.pin.length===4) intentarLogin()" autocomplete="username" autofocus placeholder="edward" class="input lowercase">
+          <div x-show="login.cargandoLista" class="input flex items-center gap-2 text-sm text-slate-400 dark:text-slate-500">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            Cargando usuarios…
+          </div>
+          <select x-show="!login.cargandoLista && login.usuarios.length > 0" x-model="login.usuario" @change="$nextTick(() => document.getElementById('uby-pin').focus())" class="input">
+            <option value="">Selecciona tu usuario…</option>
+            <template x-for="u in login.usuarios" :key="u.usuario">
+              <option :value="u.usuario" x-text="u.nombre + ' (' + u.usuario + ')'"></option>
+            </template>
+          </select>
+          <input x-show="!login.cargandoLista && login.usuarios.length === 0" x-model="login.usuario" @keydown.enter="if(login.pin.length===4) intentarLogin()" autocomplete="username" placeholder="edward" class="input lowercase">
         </div>
         <div>
           <label class="label">PIN (4 dígitos)</label>
-          <input x-model="login.pin" @keydown.enter="intentarLogin()" type="password" inputmode="numeric" maxlength="4" autocomplete="current-password" placeholder="••••" class="input font-mono text-center tracking-[.7em] text-2xl">
+          <input id="uby-pin" x-model="login.pin" @keydown.enter="intentarLogin()" type="password" inputmode="numeric" maxlength="4" autocomplete="current-password" placeholder="••••" class="input font-mono text-center tracking-[.7em] text-2xl">
         </div>
         <div x-show="login.error" class="chip chip-err w-full justify-center text-xs py-2 animate-fadeIn" x-text="login.error"></div>
         <button @click="intentarLogin()" :disabled="login.cargando || !login.usuario || login.pin.length!==4" class="btn btn-primary w-full">
@@ -1479,7 +1489,8 @@
         expiraEn: 0
       },
       login: {
-        usuario: '', pin: '', cargando: false, error: ''
+        usuario: '', pin: '', cargando: false, error: '',
+        usuarios: [], cargandoLista: false
       },
       pinChange: {
         actual: '', nuevo: '', nuevo2: '', cargando: false, abierto: false
@@ -1581,6 +1592,7 @@
         try { token = localStorage.getItem('uby_token') || ''; } catch (e) {}
         if (!token) {
           this.sesion.listo = true;
+          this.cargarUsuariosLogin();
           return;
         }
         google.script.run
@@ -1596,10 +1608,33 @@
             } else {
               this.limpiarSesionCliente();
               this.sesion.listo = true;
+              this.cargarUsuariosLogin();
             }
           })
-          .withFailureHandler(() => { this.limpiarSesionCliente(); this.sesion.listo = true; })
+          .withFailureHandler(() => {
+            this.limpiarSesionCliente();
+            this.sesion.listo = true;
+            this.cargarUsuariosLogin();
+          })
           .validarMiSesion(token);
+      },
+
+      cargarUsuariosLogin() {
+        this.login.cargandoLista = true;
+        google.script.run
+          .withSuccessHandler(lista => {
+            this.login.usuarios = lista || [];
+            this.login.cargandoLista = false;
+            // Pre-seleccionar el último usuario logueado si existe
+            try {
+              const ultimo = localStorage.getItem('uby_ultimo_usuario');
+              if (ultimo && this.login.usuarios.some(u => u.usuario === ultimo)) {
+                this.login.usuario = ultimo;
+              }
+            } catch (e) {}
+          })
+          .withFailureHandler(() => { this.login.cargandoLista = false; })
+          .obtenerUsuariosLogin();
       },
 
       limpiarSesionCliente() {
@@ -1625,8 +1660,10 @@
               this.sesion.usuario = res.usuario;
               this.sesion.nombre = res.nombre;
               this.sesion.rol = res.rol;
-              try { localStorage.setItem('uby_token', res.token); } catch (e) {}
-              this.login.usuario = '';
+              try {
+                localStorage.setItem('uby_token', res.token);
+                localStorage.setItem('uby_ultimo_usuario', res.usuario);
+              } catch (e) {}
               this.login.pin = '';
               this.login.error = '';
               this.toast('Bienvenido, ' + res.nombre, 'ok');
@@ -1648,7 +1685,7 @@
         this.menuUsuario.abierto = false;
         this.vista = 'menu';
         this.toast('Sesión cerrada', 'info');
-        // Notificar al backend por si algún día guarda log (ahora noop)
+        this.cargarUsuariosLogin(); // refresca dropdown para el próximo login
         if (token) {
           try { google.script.run.logoutUsuario(token); } catch (e) {}
         }

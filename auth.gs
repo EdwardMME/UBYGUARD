@@ -162,6 +162,28 @@ function logoutUsuario(token) {
 }
 
 /**
+ * Lista de usuarios activos para el dropdown de login.
+ * Público — no requiere sesión. Solo expone usuario + nombre (no PIN, salt, ni rol).
+ */
+function obtenerUsuariosLogin() {
+  try {
+    const sheet = asegurarHojaUsuarios_();
+    if (sheet.getLastRow() < 2) return [];
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, USUARIOS_HEADERS.length).getValues();
+    return data
+      .filter(r => r[USUARIOS_COLS.ACTIVO - 1] === true)
+      .map(r => ({
+        usuario: String(r[USUARIOS_COLS.USUARIO - 1] || ""),
+        nombre: String(r[USUARIOS_COLS.NOMBRE - 1] || "")
+      }))
+      .filter(u => u.usuario)
+      .sort((a, b) => (a.nombre || a.usuario).localeCompare(b.nombre || b.usuario));
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
  * Verifica si el token sigue vivo. Útil en el arranque del frontend.
  */
 function validarMiSesion(token) {
