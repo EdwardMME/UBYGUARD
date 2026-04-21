@@ -1,27 +1,19 @@
 /**
- * UBYGUARD - Búsqueda en DATA_SAP.
- * Usa índice cacheado en memoria → O(1) exacta / O(n) in-memory substring.
- * Sin esta capa, cada búsqueda leía 15k filas completas desde Sheets.
+ * UBYGUARD - Búsqueda en DATA_SAP. Requiere sesión activa (AUXILIAR+).
  */
 
-function buscarInventario(tipo, valor) {
-  try {
+function buscarInventario(token, tipo, valor) {
+  return conSesion_(token, ROLES.AUXILIAR, function() {
     const tipoNormal = normalizarMayus(tipo);
     const valorNormal = normalizarTexto(valor);
-    if (!valorNormal) return [];
-    return buscarEnIndice_(tipoNormal, valorNormal, LIMITES.RESULTADOS_BUSQUEDA);
-  } catch (e) {
-    return [];
-  }
+    if (!valorNormal) return { exito: true, resultados: [] };
+    const resultados = buscarEnIndice_(tipoNormal, valorNormal, LIMITES.RESULTADOS_BUSQUEDA);
+    return { exito: true, resultados: resultados };
+  });
 }
 
-/**
- * Wrapper de autocomplete expuesto al frontend. Alias de indice.gs.
- */
-function sugerirPartes(prefijo) {
-  try {
-    return autocompletarParte(prefijo);
-  } catch (e) {
-    return [];
-  }
+function sugerirPartes(token, prefijo) {
+  return conSesion_(token, ROLES.AUXILIAR, function() {
+    return { exito: true, sugerencias: autocompletarParte(prefijo) };
+  });
 }

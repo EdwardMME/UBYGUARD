@@ -1,11 +1,10 @@
 /**
- * UBYGUARD - Ingreso masivo.
+ * UBYGUARD - Ingreso masivo. Requiere sesión (AUXILIAR+).
  * Las constantes TRABAJO_MASIVO_HEADERS/COLS viven en constantes.gs.
- * Este archivo usa obtenerIndiceSap_() para evitar releer DATA_SAP.
  */
 
-function prepararTrabajoMasivo(documento) {
-  try {
+function prepararTrabajoMasivo(token, documento) {
+  return conSesion_(token, ROLES.AUXILIAR, function() {
     const doc = validarTexto_(documento, REGEX.DOCUMENTO, "documento");
     if (!doc.ok) return { exito: false, mensaje: doc.mensaje };
     const documentoNormalizado = doc.valor;
@@ -47,7 +46,9 @@ function prepararTrabajoMasivo(documento) {
       const claveLinea = construirClaveTrabajoMasivo_(linea);
       if (existentes[claveLinea]) { yaExistian++; continue; }
 
-      const sapItem = idxSap.porParte[numeroParte.toUpperCase()] || null;
+      const sapItem = idxSap.porParte[numeroParte.toUpperCase()]
+        || (idxSap.porCodigo || {})[numeroParte.toUpperCase()]
+        || null;
       if (!sapItem) sinSap++;
 
       filas.push([
@@ -89,15 +90,13 @@ function prepararTrabajoMasivo(documento) {
       existentes: yaExistian,
       sinSap: sinSap
     };
-  } catch (e) {
-    return { exito: false, mensaje: "Error interno: " + (e && e.message ? e.message : e) };
-  }
+  });
 }
 
-function obtenerTrabajoMasivo(documento, estado) {
-  try {
+function obtenerTrabajoMasivo(token, documento, estado) {
+  return conSesion_(token, ROLES.AUXILIAR, function() {
     const trabajoSheet = asegurarHojaTrabajoMasivo_();
-    if (trabajoSheet.getLastRow() < 2) return [];
+    if (trabajoSheet.getLastRow() < 2) return { exito: true, items: [] };
 
     const documentoFiltro = normalizarTexto(documento);
     const estadoFiltro = normalizarMayus(estado);
@@ -106,7 +105,7 @@ function obtenerTrabajoMasivo(documento, estado) {
       .getRange(2, 1, trabajoSheet.getLastRow() - 1, TRABAJO_MASIVO_HEADERS.length)
       .getValues();
 
-    return data
+    const items = data
       .map((row, index) => mapearFilaTrabajoMasivo_(row, index + 2, timeZone))
       .filter(item => {
         const coincideDocumento = !documentoFiltro || item.documento === documentoFiltro;
@@ -116,33 +115,27 @@ function obtenerTrabajoMasivo(documento, estado) {
         return coincideDocumento && coincideEstado;
       })
       .sort(ordenarTrabajoMasivo_);
-  } catch (e) {
-    return [];
-  }
+
+    return { exito: true, items: items };
+  });
 }
 
-function guardarEdicionTrabajoMasivo(rowNumber, observacion) {
-  try {
+function guardarEdicionTrabajoMasivo(token, rowNumber, observacion) {
+  return conSesion_(token, ROLES.AUXILIAR, function() {
     const trabajoSheet = asegurarHojaTrabajoMasivo_();
     const row = obtenerFilaTrabajoMasivoPorNumero_(trabajoSheet, rowNumber);
-
     if (!row) return { exito: false, mensaje: "No se encontró la línea de trabajo" };
     if (row.bloqueado || row.estado === ESTADOS_LINEA.COMPLETO || row.editable !== true) {
       return { exito: false, mensaje: "La línea ya no permite edición" };
     }
-
-    const obs = validarTexto_(observacion || " ", REGEX.TEXTO_LIBRE, "observación");
     trabajoSheet.getRange(rowNumber, TRABAJO_MASIVO_COLS.OBSERVACION)
       .setValue(normalizarTexto(observacion));
-
     return { exito: true, mensaje: "Observación actualizada" };
-  } catch (e) {
-    return { exito: false, mensaje: "Error interno: " + (e && e.message ? e.message : e) };
-  }
+  });
 }
 
-function registrarTrabajoMasivo(rowNumber, cantidadRegistrar, ubicacionFinal, responsable, observacion) {
-  try {
+function registrarTrabajoMasivo(token, rowNumber, cantidadRegistrar, ubicacionFinal, responsable, observacion) {
+  return conSesion_(token, ROLES.AUXILIAR, function() {
     const trabajoSheet = asegurarHojaTrabajoMasivo_();
     const row = obtenerFilaTrabajoMasivoPorNumero_(trabajoSheet, rowNumber);
 
@@ -172,7 +165,6 @@ function registrarTrabajoMasivo(rowNumber, cantidadRegistrar, ubicacionFinal, re
 
     const ubicacionFinalNormalizada = ubicVal.valor.toUpperCase();
 
-    // "Ejecutado Por" (col O) queda vacío — se llena desde el módulo de Ejecución SAP
     const filaOperativa = [[
       generarID(),
       new Date(),
@@ -219,20 +211,34 @@ function registrarTrabajoMasivo(rowNumber, cantidadRegistrar, ubicacionFinal, re
       mensaje: estado === ESTADOS_LINEA.COMPLETO ? "Línea completada" : "Movimiento registrado",
       estado: estado
     };
-  } catch (e) {
-    return { exito: false, mensaje: "Error interno: " + (e && e.message ? e.message : e) };
-  }
+  });
 }
 
-/**
- * Lista todos los documentos que tienen al menos una línea en TRABAJO_MASIVO.
- * Incluye conteo por estado para poder mostrar tarjetas en la UI y evitar
- * que el usuario cree documentos duplicados.
- */
-function obtenerDocumentosActivos() {
-  try {
+function obtenerResumenMasivo(token, documento) {
+  return conSesion_(token, ROLES.AUXILIAR, function() {
+    const r = obtenerTrabajoMasivoInterno_(documento, "");
+    let pendientes = 0, parciales = 0, completos = 0, errores = 0;
+    r.forEach(item => {
+      if (item.estado === ESTADOS_LINEA.PENDIENTE) pendientes++;
+      if (item.estado === ESTADOS_LINEA.PARCIAL) parciales++;
+      if (item.estado === ESTADOS_LINEA.COMPLETO) completos++;
+      if (item.estado === ESTADOS_LINEA.ERROR) errores++;
+    });
+    return {
+      exito: true,
+      total: r.length,
+      pendientes: pendientes,
+      parciales: parciales,
+      completos: completos,
+      errores: errores
+    };
+  });
+}
+
+function obtenerDocumentosActivos(token) {
+  return conSesion_(token, ROLES.AUXILIAR, function() {
     const sheet = asegurarHojaTrabajoMasivo_();
-    if (sheet.getLastRow() < 2) return [];
+    if (sheet.getLastRow() < 2) return { exito: true, documentos: [] };
     const data = sheet
       .getRange(2, 1, sheet.getLastRow() - 1, TRABAJO_MASIVO_HEADERS.length)
       .getValues();
@@ -246,12 +252,7 @@ function obtenerDocumentosActivos() {
 
       if (!docs[doc]) {
         docs[doc] = {
-          documento: doc,
-          total: 0,
-          pendientes: 0,
-          parciales: 0,
-          completos: 0,
-          activas: 0
+          documento: doc, total: 0, pendientes: 0, parciales: 0, completos: 0, activas: 0
         };
       }
       docs[doc].total++;
@@ -261,31 +262,35 @@ function obtenerDocumentosActivos() {
       if (!bloqueado && estado !== ESTADOS_LINEA.COMPLETO) docs[doc].activas++;
     }
 
-    return Object.keys(docs).map(k => docs[k]).sort((a, b) => {
+    const arr = Object.keys(docs).map(k => docs[k]).sort((a, b) => {
       if (a.activas !== b.activas) return b.activas - a.activas;
       return a.documento.localeCompare(b.documento);
     });
-  } catch (e) {
-    return [];
-  }
+    return { exito: true, documentos: arr };
+  });
 }
 
-function obtenerResumenMasivo(documento) {
-  const items = obtenerTrabajoMasivo(documento, "");
-  let pendientes = 0, parciales = 0, completos = 0, errores = 0;
-  items.forEach(item => {
-    if (item.estado === ESTADOS_LINEA.PENDIENTE) pendientes++;
-    if (item.estado === ESTADOS_LINEA.PARCIAL) parciales++;
-    if (item.estado === ESTADOS_LINEA.COMPLETO) completos++;
-    if (item.estado === ESTADOS_LINEA.ERROR) errores++;
-  });
-  return {
-    total: items.length,
-    pendientes: pendientes,
-    parciales: parciales,
-    completos: completos,
-    errores: errores
-  };
+// ============ Helpers internos (no expuestos al cliente) ============
+
+function obtenerTrabajoMasivoInterno_(documento, estado) {
+  const trabajoSheet = asegurarHojaTrabajoMasivo_();
+  if (trabajoSheet.getLastRow() < 2) return [];
+  const documentoFiltro = normalizarTexto(documento);
+  const estadoFiltro = normalizarMayus(estado);
+  const timeZone = Session.getScriptTimeZone();
+  const data = trabajoSheet
+    .getRange(2, 1, trabajoSheet.getLastRow() - 1, TRABAJO_MASIVO_HEADERS.length)
+    .getValues();
+  return data
+    .map((row, index) => mapearFilaTrabajoMasivo_(row, index + 2, timeZone))
+    .filter(item => {
+      const coincideDocumento = !documentoFiltro || item.documento === documentoFiltro;
+      const coincideEstado = !estadoFiltro
+        || (estadoFiltro === "ACTIVOS" && item.estado !== ESTADOS_LINEA.COMPLETO && item.bloqueado !== true)
+        || item.estado === estadoFiltro;
+      return coincideDocumento && coincideEstado;
+    })
+    .sort(ordenarTrabajoMasivo_);
 }
 
 function asegurarHojaTrabajoMasivo_() {
@@ -304,7 +309,6 @@ function asegurarHojaTrabajoMasivo_() {
     sheet.getRange(1, 1, 1, TRABAJO_MASIVO_HEADERS.length).setValues([TRABAJO_MASIVO_HEADERS]);
     sheet.setFrozenRows(1);
   }
-
   return sheet;
 }
 
@@ -313,7 +317,6 @@ function construirIndiceTrabajoMasivoPorDocumento_(sheet, documento) {
   if (sheet.getMaxRows() < 2) return index;
   const totalRows = Math.max(sheet.getMaxRows() - 1, 1);
   const data = sheet.getRange(2, 1, totalRows, TRABAJO_MASIVO_HEADERS.length).getValues();
-
   for (let i = 0; i < data.length; i++) {
     const documentoActual = normalizarTexto(data[i][TRABAJO_MASIVO_COLS.DOCUMENTO - 1]);
     const numeroParte = normalizarTexto(data[i][TRABAJO_MASIVO_COLS.NUMERO_PARTE - 1]);
@@ -406,7 +409,4 @@ function obtenerSiguienteFilaTrabajoMasivo_(sheet) {
   return 2;
 }
 
-// Alias legacy para no romper llamadas previas
-function normalizarTextoMasivo(valor) {
-  return normalizarTexto(valor);
-}
+function normalizarTextoMasivo(valor) { return normalizarTexto(valor); }

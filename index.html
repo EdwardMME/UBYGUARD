@@ -409,6 +409,67 @@
 
 <div x-data="ubyguard()" x-init="init()" x-cloak class="relative z-10 min-h-screen p-3 sm:p-5 lg:p-8">
 
+  <!-- ======================= LOGIN OVERLAY ======================= -->
+  <div x-show="sesion.listo && !sesion.token" class="fixed inset-0 z-[110] flex items-center justify-center p-4 animate-fadeIn" style="background: rgba(15,23,42,.78); backdrop-filter: blur(10px);">
+    <div class="card p-6 w-full max-w-sm animate-scaleIn">
+      <div class="text-center mb-5">
+        <div class="w-14 h-14 rounded-2xl mx-auto bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg mb-3">
+          <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+        </div>
+        <h2 class="text-xl font-bold bg-gradient-to-r from-red-600 to-red-800 bg-clip-text text-transparent">UBYGUARD</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Iniciar sesión</p>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="label">Usuario</label>
+          <input x-model="login.usuario" @keydown.enter="if(login.pin.length===4) intentarLogin()" autocomplete="username" autofocus placeholder="edward" class="input lowercase">
+        </div>
+        <div>
+          <label class="label">PIN (4 dígitos)</label>
+          <input x-model="login.pin" @keydown.enter="intentarLogin()" type="password" inputmode="numeric" maxlength="4" autocomplete="current-password" placeholder="••••" class="input font-mono text-center tracking-[.7em] text-2xl">
+        </div>
+        <div x-show="login.error" class="chip chip-err w-full justify-center text-xs py-2 animate-fadeIn" x-text="login.error"></div>
+        <button @click="intentarLogin()" :disabled="login.cargando || !login.usuario || login.pin.length!==4" class="btn btn-primary w-full">
+          <svg x-show="!login.cargando" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></svg>
+          <svg x-show="login.cargando" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+          <span x-text="login.cargando ? 'Entrando…' : 'Entrar'"></span>
+        </button>
+        <p class="text-xs text-center text-slate-500 dark:text-slate-400 mt-3">Si no tienes cuenta, pide a un AGENTE que la cree.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= MODAL CAMBIAR PIN ======================= -->
+  <div x-show="pinChange.abierto" @keydown.escape.window="pinChange.abierto=false" class="fixed inset-0 z-[105] flex items-center justify-center p-4" style="background: rgba(15,23,42,.55); backdrop-filter: blur(6px);" @click.self="pinChange.abierto=false">
+    <div class="card p-5 w-full max-w-sm animate-scaleIn">
+      <h3 class="font-bold text-lg mb-1 flex items-center gap-2">
+        <i data-lucide="key-round" class="w-5 h-5 text-amber-600"></i>
+        Cambiar mi PIN
+      </h3>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">4 dígitos nuevos</p>
+      <div class="space-y-3">
+        <div>
+          <label class="label">PIN actual</label>
+          <input x-model="pinChange.actual" type="password" inputmode="numeric" maxlength="4" class="input font-mono text-center tracking-[.5em] text-xl">
+        </div>
+        <div>
+          <label class="label">PIN nuevo</label>
+          <input x-model="pinChange.nuevo" type="password" inputmode="numeric" maxlength="4" class="input font-mono text-center tracking-[.5em] text-xl">
+        </div>
+        <div>
+          <label class="label">Repite PIN nuevo</label>
+          <input x-model="pinChange.nuevo2" type="password" inputmode="numeric" maxlength="4" @keydown.enter="confirmarCambioPin()" class="input font-mono text-center tracking-[.5em] text-xl">
+        </div>
+        <div class="flex gap-2 pt-2">
+          <button @click="pinChange.abierto=false" class="btn btn-ghost flex-1">Cancelar</button>
+          <button @click="confirmarCambioPin()" :disabled="pinChange.cargando" class="btn btn-primary flex-1">
+            <span x-text="pinChange.cargando ? 'Guardando…' : 'Guardar'"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast container -->
   <div class="fixed top-4 right-4 z-[120] flex flex-col gap-2 pointer-events-none" aria-live="polite">
     <template x-for="t in toasts" :key="t.id">
@@ -464,7 +525,7 @@
     </div>
   </div>
 
-  <div class="max-w-7xl mx-auto space-y-5">
+  <div class="max-w-7xl mx-auto space-y-5" x-show="sesion.token">
 
     <!-- Header -->
     <header class="glass rounded-3xl p-4 sm:p-6 animate-fadeIn">
@@ -480,9 +541,28 @@
         </div>
 
         <div class="flex items-center gap-2">
-          <div class="hidden md:flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400" x-show="usuario">
-            <i data-lucide="user-round" class="w-4 h-4"></i>
-            <span x-text="usuario"></span>
+          <div class="relative" x-show="sesion.token" @click.outside="menuUsuario.abierto=false">
+            <button @click="menuUsuario.abierto = !menuUsuario.abierto" class="btn btn-soft btn-sm" :title="sesion.usuario + ' · ' + sesion.rol">
+              <i data-lucide="user-round" class="w-4 h-4 text-red-600"></i>
+              <span class="hide-mobile font-semibold" x-text="sesion.nombre"></span>
+              <span class="chip chip-mute hide-mobile" x-text="sesion.rol"></span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+            </button>
+            <div x-show="menuUsuario.abierto" x-transition class="absolute right-0 top-full mt-2 w-56 card p-1 z-50 animate-scaleIn">
+              <div class="px-3 py-2 border-b border-[color:var(--border)]">
+                <div class="font-semibold text-sm text-slate-800 dark:text-slate-100" x-text="sesion.nombre"></div>
+                <div class="text-xs text-slate-500 dark:text-slate-400"><span x-text="sesion.usuario"></span> · <span class="font-semibold" x-text="sesion.rol"></span></div>
+              </div>
+              <button @click="abrirCambiarPin()" class="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg flex items-center gap-2">
+                <i data-lucide="key-round" class="w-4 h-4 text-amber-600"></i> Cambiar mi PIN
+              </button>
+              <button x-show="puedeVer('AGENTE')" @click="menuUsuario.abierto=false; navegar('usuarios')" class="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg flex items-center gap-2">
+                <i data-lucide="users-round" class="w-4 h-4 text-sky-600"></i> Gestionar usuarios
+              </button>
+              <button @click="cerrarSesion()" class="w-full text-left px-3 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg flex items-center gap-2 text-red-600">
+                <i data-lucide="log-out" class="w-4 h-4"></i> Cerrar sesión
+              </button>
+            </div>
           </div>
           <button @click="palette.abierto=true; $nextTick(()=>$refs.paletteInput.focus())" class="btn btn-ghost btn-sm" title="Comandos (Ctrl+K)">
             <i data-lucide="command" class="w-4 h-4"></i>
@@ -1049,11 +1129,12 @@
 
         <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 mb-4">
           <div>
-            <label class="label">Tu nombre <span class="text-red-500">*</span></label>
-            <select x-model="ejecucion.ejecutor" @change="guardarEjecutor()" class="input">
-              <option value="">Selecciona quién ejecuta…</option>
-              <template x-for="r in responsables" :key="r"><option :value="r" x-text="r"></option></template>
-            </select>
+            <label class="label">Ejecutor</label>
+            <div class="input flex items-center gap-2">
+              <i data-lucide="user-check" class="w-4 h-4 text-emerald-600"></i>
+              <span class="font-semibold" x-text="sesion.nombre || '—'"></span>
+              <span class="chip chip-ok ml-auto">Tú</span>
+            </div>
           </div>
           <div class="flex items-end">
             <button @click="cargarPendientesSap()" class="btn btn-ghost" :disabled="ejecucion.cargando">
@@ -1062,7 +1143,7 @@
             </button>
           </div>
           <div class="flex items-end">
-            <button @click="ejecutarLote()" class="btn btn-primary" :disabled="ejecucion.seleccionados.length===0 || !ejecucion.ejecutor || ejecucion.cargando">
+            <button @click="ejecutarLote()" class="btn btn-primary" :disabled="ejecucion.seleccionados.length===0 || ejecucion.cargando">
               <i data-lucide="play-circle" class="w-4 h-4"></i>
               Ejecutar <span x-show="ejecucion.seleccionados.length>0" x-text="'('+ejecucion.seleccionados.length+')'"></span>
             </button>
@@ -1114,7 +1195,7 @@
                   <td class="mono font-semibold" x-text="item.ubicacionFinal || '—'"></td>
                   <td class="hide-mobile text-xs" x-text="item.responsable"></td>
                   <td>
-                    <button @click="ejecutarUno(item)" class="btn btn-primary btn-sm !py-1 !px-2" :disabled="!ejecucion.ejecutor || item._procesando" :title="ejecucion.ejecutor ? 'Ejecutar ahora' : 'Selecciona quién ejecuta arriba'">
+                    <button @click="ejecutarUno(item)" class="btn btn-primary btn-sm !py-1 !px-2" :disabled="item._procesando" title="Ejecutar ahora">
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" x-show="!item._procesando"><path d="M20 6 9 17l-5-5"/></svg>
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin" x-show="item._procesando"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                     </button>
@@ -1241,6 +1322,132 @@
       </div>
     </section>
 
+    <!-- ======================== USUARIOS (solo AGENTE) ======================== -->
+    <section x-show="vista==='usuarios'" x-transition.opacity class="space-y-5">
+      <div class="card p-5">
+        <div class="flex items-start justify-between mb-5 gap-3 flex-wrap">
+          <div>
+            <h3 class="section-title flex items-center gap-2">
+              <i data-lucide="users-round" class="w-5 h-5 text-red-600"></i>
+              Gestión de usuarios
+            </h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Solo AGENTES pueden crear, editar, activar/desactivar usuarios y resetear PINs</p>
+          </div>
+          <div class="flex gap-2">
+            <button @click="cargarUsuarios()" class="btn btn-ghost btn-sm" :disabled="usuariosVista.cargando">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :class="{'spin': usuariosVista.cargando}"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+              Recargar
+            </button>
+            <button @click="abrirFormUsuario(null)" class="btn btn-primary btn-sm">
+              <i data-lucide="plus" class="w-4 h-4"></i> Nuevo usuario
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr>
+              <th>Usuario</th>
+              <th>Nombre</th>
+              <th>Rol</th>
+              <th>Activo</th>
+              <th class="hide-mobile">Último acceso</th>
+              <th class="hide-mobile">Creado por</th>
+              <th class="text-right">Acciones</th>
+            </tr></thead>
+            <tbody>
+              <template x-for="u in usuariosVista.lista" :key="u.usuario">
+                <tr :class="{'opacity-50': !u.activo}">
+                  <td class="mono font-semibold" x-text="u.usuario"></td>
+                  <td x-text="u.nombre"></td>
+                  <td>
+                    <span class="chip" :class="u.rol==='AGENTE' ? 'chip-err' : 'chip-info'" x-text="u.rol"></span>
+                  </td>
+                  <td>
+                    <span class="chip" :class="u.activo ? 'chip-ok' : 'chip-mute'" x-text="u.activo ? 'Sí' : 'No'"></span>
+                  </td>
+                  <td class="hide-mobile text-xs" x-text="u.ultimoAcceso || '—'"></td>
+                  <td class="hide-mobile text-xs" x-text="u.creadoPor || '—'"></td>
+                  <td class="text-right">
+                    <div class="flex justify-end gap-1">
+                      <button @click="abrirFormUsuario(u)" class="btn btn-soft btn-sm !py-1 !px-2" title="Editar nombre/rol">
+                        <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                      </button>
+                      <button @click="abrirResetPin(u)" class="btn btn-soft btn-sm !py-1 !px-2" title="Resetear PIN">
+                        <i data-lucide="key-round" class="w-3.5 h-3.5"></i>
+                      </button>
+                      <button @click="toggleActivoUsuario(u)" class="btn btn-sm !py-1 !px-2" :class="u.activo ? 'btn-danger' : 'btn-primary'" :title="u.activo ? 'Desactivar' : 'Activar'">
+                        <i :data-lucide="u.activo ? 'user-x' : 'user-check'" class="w-3.5 h-3.5"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+              <tr x-show="!usuariosVista.cargando && usuariosVista.lista.length===0">
+                <td colspan="7"><div class="text-center py-10 text-slate-500 dark:text-slate-400">Sin usuarios</div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal crear/editar usuario -->
+      <div x-show="usuariosVista.mostrandoForm" @keydown.escape.window="cerrarFormUsuario()" class="fixed inset-0 z-[105] flex items-center justify-center p-4" style="background: rgba(15,23,42,.55); backdrop-filter: blur(6px);" @click.self="cerrarFormUsuario()">
+        <div class="card p-5 w-full max-w-md animate-scaleIn">
+          <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+            <i :data-lucide="usuariosVista.form._editando ? 'user-cog' : 'user-plus'" class="w-5 h-5 text-red-600"></i>
+            <span x-text="usuariosVista.form._editando ? 'Editar usuario' : 'Nuevo usuario'"></span>
+          </h3>
+          <div class="space-y-3">
+            <div x-show="!usuariosVista.form._editando">
+              <label class="label">Usuario (único, sin espacios)</label>
+              <input x-model="usuariosVista.form.usuario" placeholder="ej. jcecilio" class="input lowercase mono">
+            </div>
+            <div>
+              <label class="label">Nombre completo</label>
+              <input x-model="usuariosVista.form.nombre" placeholder="José Cecilio" class="input">
+            </div>
+            <div x-show="!usuariosVista.form._editando">
+              <label class="label">PIN inicial (4 dígitos)</label>
+              <input x-model="usuariosVista.form.pin" type="password" inputmode="numeric" maxlength="4" class="input font-mono text-center tracking-[.5em] text-xl">
+              <p class="hint mt-1">El usuario podrá cambiarlo después desde su menú</p>
+            </div>
+            <div>
+              <label class="label">Rol</label>
+              <select x-model="usuariosVista.form.rol" class="input">
+                <option value="AUXILIAR">AUXILIAR (sin Ejecución SAP)</option>
+                <option value="AGENTE">AGENTE (control total)</option>
+              </select>
+            </div>
+            <div class="flex gap-2 pt-2">
+              <button @click="cerrarFormUsuario()" class="btn btn-ghost flex-1">Cancelar</button>
+              <button @click="guardarUsuario()" :disabled="usuariosVista.guardando" class="btn btn-primary flex-1">
+                <span x-text="usuariosVista.guardando ? 'Guardando…' : 'Guardar'"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal reset PIN -->
+      <div x-show="usuariosVista.resetPinFor" @keydown.escape.window="usuariosVista.resetPinFor=null" class="fixed inset-0 z-[105] flex items-center justify-center p-4" style="background: rgba(15,23,42,.55); backdrop-filter: blur(6px);" @click.self="usuariosVista.resetPinFor=null">
+        <div class="card p-5 w-full max-w-sm animate-scaleIn">
+          <h3 class="font-bold text-lg mb-1 flex items-center gap-2">
+            <i data-lucide="key-round" class="w-5 h-5 text-amber-600"></i>
+            Resetear PIN
+          </h3>
+          <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Nuevo PIN para <span class="font-bold font-mono" x-text="usuariosVista.resetPinFor"></span></p>
+          <div class="space-y-3">
+            <input x-model="usuariosVista.resetPinValor" @keydown.enter="confirmarResetPin()" type="password" inputmode="numeric" maxlength="4" placeholder="••••" class="input font-mono text-center tracking-[.5em] text-2xl">
+            <div class="flex gap-2">
+              <button @click="usuariosVista.resetPinFor=null" class="btn btn-ghost flex-1">Cancelar</button>
+              <button @click="confirmarResetPin()" class="btn btn-primary flex-1">Confirmar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <footer class="text-center text-xs text-slate-400 dark:text-slate-500 py-4">
       UBYGUARD · Powered by Google Apps Script
     </footer>
@@ -1254,7 +1461,6 @@
       vista: 'menu',
       dark: false,
       responsables: [],
-      usuario: '',
       resumen: null,
       totalSap: 0,
       indiceEdad: null,
@@ -1263,13 +1469,36 @@
       ultimaCargaMs: null,
       LIMITES_RESULTADOS: 150,
 
-      nav: [
-        { id: 'menu',       label: 'Menú',             icono: 'layout-dashboard' },
-        { id: 'buscador',   label: 'Buscador',         icono: 'search' },
-        { id: 'individual', label: 'Ingreso Individual', icono: 'package-plus' },
-        { id: 'masivo',     label: 'Ingreso Masivo',   icono: 'layers' },
-        { id: 'ejecucion',  label: 'Ejecución SAP',    icono: 'check-square' },
-        { id: 'historial',  label: 'Historial',        icono: 'history' }
+      // Sesión
+      sesion: {
+        token: '', usuario: '', nombre: '', rol: '',
+        listo: false,  // true tras verificar localStorage
+        expiraEn: 0
+      },
+      login: {
+        usuario: '', pin: '', cargando: false, error: ''
+      },
+      pinChange: {
+        actual: '', nuevo: '', nuevo2: '', cargando: false, abierto: false
+      },
+      menuUsuario: { abierto: false },
+
+      // Gestión de usuarios (solo AGENTE)
+      usuariosVista: {
+        lista: [], cargando: false,
+        form: { usuario: '', nombre: '', pin: '', rol: 'AUXILIAR', _editando: null },
+        mostrandoForm: false, guardando: false,
+        resetPinFor: null, resetPinValor: ''
+      },
+
+      navTodos: [
+        { id: 'menu',       label: 'Menú',             icono: 'layout-dashboard', rol: 'AUXILIAR' },
+        { id: 'buscador',   label: 'Buscador',         icono: 'search',           rol: 'AUXILIAR' },
+        { id: 'individual', label: 'Ingreso Individual', icono: 'package-plus',   rol: 'AUXILIAR' },
+        { id: 'masivo',     label: 'Ingreso Masivo',   icono: 'layers',           rol: 'AUXILIAR' },
+        { id: 'ejecucion',  label: 'Ejecución SAP',    icono: 'check-square',     rol: 'AGENTE' },
+        { id: 'historial',  label: 'Historial',        icono: 'history',          rol: 'AUXILIAR' },
+        { id: 'usuarios',   label: 'Usuarios',         icono: 'users-round',      rol: 'AGENTE' }
       ],
 
       busqueda: { tipo: 'PARTE', valor: '', resultados: [], cargando: false, tiempoMs: null },
@@ -1316,9 +1545,8 @@
         try { this.dark = (localStorage.getItem('uby_dark') === '1'); } catch (e) { this.dark = false; }
         this.aplicarTema();
         this.registrarAtajos();
-        this.cargarInicial();
+        this.verificarSesion();
         this.$nextTick(() => this.renderIcons());
-        // Debounced icon refresh on DOM changes
         let iconTimer;
         const obs = new MutationObserver(() => {
           clearTimeout(iconTimer);
@@ -1332,62 +1560,227 @@
         try { if (window.lucide) lucide.createIcons(); } catch (e) {}
       },
 
+      // ======================= NAVEGACIÓN =======================
+      get nav() {
+        const rolUsuario = this.sesion.rol || 'AUXILIAR';
+        const niveles = { AUXILIAR: 1, AGENTE: 2 };
+        return this.navTodos.filter(n => (niveles[rolUsuario] || 0) >= (niveles[n.rol] || 99));
+      },
+
+      puedeVer(rolMin) {
+        const niveles = { AUXILIAR: 1, AGENTE: 2 };
+        return (niveles[this.sesion.rol] || 0) >= (niveles[rolMin] || 99);
+      },
+
+      // ======================= SESIÓN =======================
+      verificarSesion() {
+        let token = '';
+        try { token = localStorage.getItem('uby_token') || ''; } catch (e) {}
+        if (!token) {
+          this.sesion.listo = true;
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(res => {
+            if (res && res.valid) {
+              this.sesion.token = res.token || token;
+              this.sesion.usuario = res.usuario;
+              this.sesion.nombre = res.nombre;
+              this.sesion.rol = res.rol;
+              try { localStorage.setItem('uby_token', this.sesion.token); } catch (e) {}
+              this.sesion.listo = true;
+              this.cargarInicial();
+            } else {
+              this.limpiarSesionCliente();
+              this.sesion.listo = true;
+            }
+          })
+          .withFailureHandler(() => { this.limpiarSesionCliente(); this.sesion.listo = true; })
+          .validarMiSesion(token);
+      },
+
+      limpiarSesionCliente() {
+        this.sesion.token = '';
+        this.sesion.usuario = '';
+        this.sesion.nombre = '';
+        this.sesion.rol = '';
+        try { localStorage.removeItem('uby_token'); } catch (e) {}
+      },
+
+      intentarLogin() {
+        const u = (this.login.usuario || '').trim().toLowerCase();
+        const p = (this.login.pin || '').trim();
+        if (!u || !p) { this.login.error = 'Ingresa usuario y PIN'; return; }
+        if (!/^\d{4}$/.test(p)) { this.login.error = 'El PIN son 4 dígitos'; return; }
+        this.login.cargando = true;
+        this.login.error = '';
+        google.script.run
+          .withSuccessHandler(res => {
+            this.login.cargando = false;
+            if (res && res.exito) {
+              this.sesion.token = res.token;
+              this.sesion.usuario = res.usuario;
+              this.sesion.nombre = res.nombre;
+              this.sesion.rol = res.rol;
+              try { localStorage.setItem('uby_token', res.token); } catch (e) {}
+              this.login.usuario = '';
+              this.login.pin = '';
+              this.login.error = '';
+              this.toast('Bienvenido, ' + res.nombre, 'ok');
+              this.cargarInicial();
+            } else {
+              this.login.error = (res && res.mensaje) || 'No se pudo iniciar sesión';
+            }
+          })
+          .withFailureHandler(err => {
+            this.login.cargando = false;
+            this.login.error = 'Error de red';
+          })
+          .loginUsuario(u, p);
+      },
+
+      cerrarSesion() {
+        const token = this.sesion.token;
+        this.limpiarSesionCliente();
+        this.menuUsuario.abierto = false;
+        this.vista = 'menu';
+        this.toast('Sesión cerrada', 'info');
+        // Notificar al backend por si algún día guarda log (ahora noop)
+        if (token) {
+          try { google.script.run.logoutUsuario(token); } catch (e) {}
+        }
+      },
+
+      abrirCambiarPin() {
+        this.pinChange.actual = '';
+        this.pinChange.nuevo = '';
+        this.pinChange.nuevo2 = '';
+        this.pinChange.abierto = true;
+        this.menuUsuario.abierto = false;
+      },
+      confirmarCambioPin() {
+        if (this.pinChange.cargando) return;
+        if (this.pinChange.nuevo !== this.pinChange.nuevo2) {
+          this.toast('Los PINs nuevos no coinciden', 'warn');
+          return;
+        }
+        if (!/^\d{4}$/.test(this.pinChange.nuevo)) {
+          this.toast('PIN nuevo debe ser 4 dígitos', 'warn');
+          return;
+        }
+        this.pinChange.cargando = true;
+        this.rpc('cambiarMiPin', this.pinChange.actual, this.pinChange.nuevo).then(res => {
+          this.pinChange.cargando = false;
+          if (res && res.exito) {
+            this.toast('PIN actualizado', 'ok');
+            this.pinChange.abierto = false;
+          } else {
+            this.toast(res && res.mensaje || 'Error', 'err');
+          }
+        }).catch(() => { this.pinChange.cargando = false; this.toast('Error de red', 'err'); });
+      },
+
+      // ======================= RPC HELPER =======================
+      /**
+       * Wrapper central para todas las llamadas al backend que requieren sesión.
+       * - Inyecta el token como primer argumento
+       * - Renueva token silenciosamente si el backend devuelve uno nuevo
+       * - Desuelve {_token, ...res} → res original
+       * - Auto-logout si el backend responde sesion_expirada
+       * - Retorna promesa para uso con async/await o .then
+       */
+      rpc(nombreFn, ...args) {
+        const self = this;
+        return new Promise((resolve, reject) => {
+          const token = self.sesion.token;
+          if (!token) {
+            reject(new Error('Sin sesión'));
+            return;
+          }
+          const timer = setTimeout(() => reject(new Error('Timeout del servidor')), 60000);
+          google.script.run
+            .withSuccessHandler(res => {
+              clearTimeout(timer);
+              if (!res) return resolve(null);
+              if (res.sesion_expirada) {
+                self.limpiarSesionCliente();
+                self.toast('Sesión expirada. Inicia sesión de nuevo.', 'warn');
+                reject(new Error('Sesión expirada'));
+                return;
+              }
+              if (res.permiso_denegado) {
+                self.toast(res.mensaje || 'Sin permiso', 'err');
+                reject(new Error('Permiso denegado'));
+                return;
+              }
+              if (res._token) {
+                self.sesion.token = res._token;
+                try { localStorage.setItem('uby_token', res._token); } catch (e) {}
+                delete res._token;
+              }
+              if (res.data !== undefined && Object.keys(res).filter(k => k !== 'data').length === 0) {
+                resolve(res.data);
+              } else {
+                resolve(res);
+              }
+            })
+            .withFailureHandler(err => {
+              clearTimeout(timer);
+              reject(err);
+            })
+            [nombreFn](token, ...args);
+        });
+      },
+
       cargarInicial() {
         console.log('[UBY] cargarInicial() → obtenerDatosIniciales');
         this.cargandoResumen = true;
         const t0 = Date.now();
-        google.script.run
-          .withSuccessHandler(data => {
-            console.log('[UBY] datos iniciales OK', data);
-            this.responsables = (data && data.responsables) || [];
-            this.resumen = (data && data.resumen) || null;
-            this.totalSap = (data && data.indiceSap && data.indiceSap.total) || 0;
-            this.indiceEdad = (data && data.indiceSap && data.indiceSap.antiguedadSegundos) || null;
-            this.usuario = (data && data.usuario) || '';
-            this.cargandoResumen = false;
-            this.ultimaCargaMs = Date.now() - t0;
-          })
-          .withFailureHandler(err => {
-            console.error('[UBY] datos iniciales ERROR', err);
-            this.cargandoResumen = false;
-            this.toast('No se pudo cargar datos iniciales: ' + (err && err.message ? err.message : err), 'err');
-          })
-          .obtenerDatosIniciales();
+        this.rpc('obtenerDatosIniciales').then(data => {
+          console.log('[UBY] datos iniciales OK', data);
+          this.responsables = (data && data.responsables) || [];
+          this.resumen = (data && data.resumen) || null;
+          this.totalSap = (data && data.indiceSap && data.indiceSap.total) || 0;
+          this.indiceEdad = (data && data.indiceSap && data.indiceSap.antiguedadSegundos) || null;
+          if (data && data.nombre) {
+            this.sesion.nombre = data.nombre;
+            this.sesion.rol = data.rol || this.sesion.rol;
+            // Autollenar responsable con el nombre del usuario
+            if (!this.individual.responsable) this.individual.responsable = data.nombre;
+          }
+          this.cargandoResumen = false;
+          this.ultimaCargaMs = Date.now() - t0;
+        }).catch(err => {
+          console.error('[UBY] datos iniciales ERROR', err);
+          this.cargandoResumen = false;
+          this.toast('No se pudo cargar: ' + (err && err.message ? err.message : err), 'err');
+        });
       },
 
-      refrescarResumen(invalidarCache) {
+      refrescarResumen() {
         this.cargandoResumen = true;
-        google.script.run
-          .withSuccessHandler(data => {
-            this.resumen = data;
-            this.cargandoResumen = false;
-            this.toast('Dashboard actualizado', 'ok');
-          })
-          .withFailureHandler(() => { this.cargandoResumen = false; })
-          .obtenerResumenInicio();
+        this.rpc('obtenerResumenInicio').then(data => {
+          this.resumen = data;
+          this.cargandoResumen = false;
+          this.toast('Dashboard actualizado', 'ok');
+        }).catch(() => { this.cargandoResumen = false; });
       },
 
       refrescarIndice() {
         if (this.refrescandoIndice) return;
         this.refrescandoIndice = true;
         this.toast('Reconstruyendo índice SAP…', 'info');
-        google.script.run
-          .withSuccessHandler(res => {
-            this.refrescandoIndice = false;
-            if (res && res.exito) {
-              this.totalSap = res.total || this.totalSap;
-              this.indiceEdad = 0;
-              this.toast(res.mensaje || 'Índice actualizado', 'ok');
-              if (this.busqueda.valor && this.vista === 'buscador') this.ejecutarBusqueda();
-            } else {
-              this.toast(res && res.mensaje || 'Error al refrescar índice', 'err');
-            }
-          })
-          .withFailureHandler(err => {
-            this.refrescandoIndice = false;
-            this.toast('Error de red al refrescar índice', 'err');
-          })
-          .refrescarIndiceSap();
+        this.rpc('refrescarIndiceSap').then(res => {
+          this.refrescandoIndice = false;
+          if (res && res.exito) {
+            this.totalSap = res.total || this.totalSap;
+            this.indiceEdad = 0;
+            this.toast(res.mensaje || 'Índice actualizado', 'ok');
+            if (this.busqueda.valor && this.vista === 'buscador') this.ejecutarBusqueda();
+          } else {
+            this.toast(res && res.mensaje || 'Error', 'err');
+          }
+        }).catch(() => { this.refrescandoIndice = false; this.toast('Error de red', 'err'); });
       },
 
       buscarEnTodosLosCampos() {
@@ -1395,21 +1788,17 @@
         if (!v) return;
         this.busqueda.cargando = true;
         const t0 = Date.now();
-        google.script.run
-          .withSuccessHandler(res => {
-            this.busqueda.cargando = false;
-            this.busqueda.tiempoMs = Date.now() - t0;
-            const registros = (res && res.resultados) || [];
-            this.busqueda.resultados = registros.map(r => r.registro);
-            this.busqueda.camposEncontrados = registros.map(r => r.campos.join(', '));
-            if (registros.length > 0) {
-              this.toast('Encontrado en otros campos: ' + [...new Set(registros.flatMap(r=>r.campos))].join(', '), 'ok');
-            } else {
-              this.toast('No existe en ningún campo. Prueba refrescar el índice.', 'warn');
-            }
-          })
-          .withFailureHandler(() => { this.busqueda.cargando = false; this.toast('Error', 'err'); })
-          .buscarEnTodos(v);
+        this.rpc('buscarEnTodos', v).then(res => {
+          this.busqueda.cargando = false;
+          this.busqueda.tiempoMs = Date.now() - t0;
+          const registros = (res && res.resultados) || [];
+          this.busqueda.resultados = registros.map(r => r.registro);
+          if (registros.length > 0) {
+            this.toast('Encontrado en: ' + [...new Set(registros.flatMap(r=>r.campos))].join(', '), 'ok');
+          } else {
+            this.toast('No existe en ningún campo', 'warn');
+          }
+        }).catch(() => { this.busqueda.cargando = false; this.toast('Error', 'err'); });
       },
 
       // ======================= TEMA =======================
@@ -1422,18 +1811,77 @@
         document.documentElement.classList.toggle('dark', this.dark);
       },
 
-      // ======================= NAV =======================
+      // ======================= NAV (acción) =======================
       navegar(v) {
+        if (!this.puedeVer((this.navTodos.find(n => n.id === v) || {}).rol || 'AUXILIAR')) {
+          this.toast('No tienes permiso para esta sección', 'warn');
+          return;
+        }
         this.vista = v;
         if (v === 'historial' && this.historial.registros.length === 0) this.cargarHistorial();
         if (v === 'buscador') this.$nextTick(() => this.$refs.buscadorInput && this.$refs.buscadorInput.focus());
-        if (v === 'ejecucion') {
-          try { this.ejecucion.ejecutor = localStorage.getItem('uby_ejecutor') || this.ejecucion.ejecutor; } catch (e) {}
-          this.cargarPendientesSap();
-        }
-        if (v === 'masivo') {
-          this.cargarDocumentosMasivo();
-        }
+        if (v === 'ejecucion') this.cargarPendientesSap();
+        if (v === 'masivo') this.cargarDocumentosMasivo();
+        if (v === 'usuarios') this.cargarUsuarios();
+      },
+
+      // ======================= GESTIÓN DE USUARIOS =======================
+      cargarUsuarios() {
+        this.usuariosVista.cargando = true;
+        this.rpc('obtenerUsuarios').then(res => {
+          this.usuariosVista.lista = (res && res.usuarios) || [];
+          this.usuariosVista.cargando = false;
+        }).catch(() => { this.usuariosVista.cargando = false; this.toast('Error al cargar usuarios', 'err'); });
+      },
+      abrirFormUsuario(u) {
+        this.usuariosVista.form = u
+          ? { usuario: u.usuario, nombre: u.nombre, pin: '', rol: u.rol, _editando: u.usuario }
+          : { usuario: '', nombre: '', pin: '', rol: 'AUXILIAR', _editando: null };
+        this.usuariosVista.mostrandoForm = true;
+      },
+      cerrarFormUsuario() { this.usuariosVista.mostrandoForm = false; },
+      guardarUsuario() {
+        if (this.usuariosVista.guardando) return;
+        const f = this.usuariosVista.form;
+        if (!f.nombre) { this.toast('Nombre requerido', 'warn'); return; }
+        this.usuariosVista.guardando = true;
+        const editando = f._editando;
+        const promesa = editando
+          ? this.rpc('actualizarUsuario', editando, { nombre: f.nombre, rol: f.rol })
+          : this.rpc('crearUsuario', { usuario: f.usuario, nombre: f.nombre, pin: f.pin, rol: f.rol });
+        promesa.then(res => {
+          this.usuariosVista.guardando = false;
+          if (res && res.exito) {
+            this.toast(res.mensaje || (editando ? 'Actualizado' : 'Creado'), 'ok');
+            this.cerrarFormUsuario();
+            this.cargarUsuarios();
+          } else {
+            this.toast(res && res.mensaje || 'Error', 'err');
+          }
+        }).catch(() => { this.usuariosVista.guardando = false; this.toast('Error de red', 'err'); });
+      },
+      toggleActivoUsuario(u) {
+        if (!confirm((u.activo ? 'Desactivar' : 'Activar') + ' a ' + u.nombre + '?')) return;
+        this.rpc('actualizarUsuario', u.usuario, { activo: !u.activo }).then(res => {
+          if (res && res.exito) { this.toast(res.mensaje, 'ok'); this.cargarUsuarios(); }
+          else this.toast(res && res.mensaje || 'Error', 'err');
+        }).catch(() => this.toast('Error de red', 'err'));
+      },
+      abrirResetPin(u) {
+        this.usuariosVista.resetPinFor = u.usuario;
+        this.usuariosVista.resetPinValor = '';
+      },
+      confirmarResetPin() {
+        const u = this.usuariosVista.resetPinFor;
+        const p = this.usuariosVista.resetPinValor;
+        if (!u || !/^\d{4}$/.test(p)) { this.toast('PIN: 4 dígitos', 'warn'); return; }
+        this.rpc('resetearPin', u, p).then(res => {
+          if (res && res.exito) {
+            this.toast(res.mensaje, 'ok');
+            this.usuariosVista.resetPinFor = null;
+            this.usuariosVista.resetPinValor = '';
+          } else this.toast(res && res.mensaje || 'Error', 'err');
+        }).catch(() => this.toast('Error de red', 'err'));
       },
 
       // ======================= TOAST =======================
@@ -1499,22 +1947,16 @@
         if (!v) { this.busqueda.resultados = []; this.busqueda.tiempoMs = null; return; }
         this.busqueda.cargando = true;
         const t0 = Date.now();
-        google.script.run
-          .withSuccessHandler(res => {
-            this.busqueda.resultados = res || [];
-            this.busqueda.cargando = false;
-            this.busqueda.tiempoMs = Date.now() - t0;
-          })
-          .withFailureHandler(() => {
-            this.busqueda.cargando = false;
-            this.toast('Error al buscar', 'err');
-          })
-          .buscarInventario(this.busqueda.tipo, v);
+        this.rpc('buscarInventario', this.busqueda.tipo, v).then(res => {
+          this.busqueda.resultados = (res && res.resultados) || [];
+          this.busqueda.cargando = false;
+          this.busqueda.tiempoMs = Date.now() - t0;
+        }).catch(() => { this.busqueda.cargando = false; this.toast('Error al buscar', 'err'); });
       },
       limpiarBusqueda() { this.busqueda.valor=''; this.busqueda.resultados=[]; this.busqueda.tiempoMs=null; },
-      usarEnIndividual(parte) {
+      usarEnIndividual(identificador) {
         this.navegar('individual');
-        this.individual.parte = parte;
+        this.individual.parte = identificador;
         this.$nextTick(() => this.cargarArticulo());
       },
 
@@ -1522,38 +1964,34 @@
       buscarSugerencias() {
         const v = (this.individual.parte || '').trim();
         if (v.length < 2) { this.individual.sugerencias = []; this.individual.mostrarSugerencias = false; return; }
-        google.script.run
-          .withSuccessHandler(res => {
-            this.individual.sugerencias = res || [];
-            this.individual.sugIdx = 0;
-            this.individual.mostrarSugerencias = this.individual.sugerencias.length > 0;
-          })
-          .sugerirPartes(v);
+        this.rpc('sugerirPartes', v).then(res => {
+          this.individual.sugerencias = (res && res.sugerencias) || [];
+          this.individual.sugIdx = 0;
+          this.individual.mostrarSugerencias = this.individual.sugerencias.length > 0;
+        }).catch(() => {});
       },
       elegirSugerencia(i) {
         const s = this.individual.sugerencias[i];
         if (!s) return;
-        this.individual.parte = s.parte;
+        this.individual.parte = s.parte || s.codigo;
         this.individual.articulo = {
-          codigo: s.codigo, descripcion: s.descripcion, stock: s.stock, ubicacion: s.ubicacion
+          parte: s.parte, codigo: s.codigo, descripcion: s.descripcion, stock: s.stock, ubicacion: s.ubicacion
         };
         this.individual.mostrarSugerencias = false;
       },
       cargarArticulo() {
         const p = (this.individual.parte || '').trim();
         if (!p) return;
-        google.script.run
-          .withSuccessHandler(res => {
-            if (!res) {
-              this.individual.articulo = null;
-              this.toast('Parte no encontrada en DATA_SAP', 'warn');
-            } else {
-              this.individual.articulo = res;
-              this.individual.mostrarSugerencias = false;
-            }
-          })
-          .withFailureHandler(() => this.toast('Error al consultar', 'err'))
-          .buscarArticulo(p);
+        this.rpc('buscarArticulo', p).then(res => {
+          const art = res && res.articulo;
+          if (!art) {
+            this.individual.articulo = null;
+            this.toast('No existe en DATA_SAP', 'warn');
+          } else {
+            this.individual.articulo = art;
+            this.individual.mostrarSugerencias = false;
+          }
+        }).catch(() => this.toast('Error al consultar', 'err'));
       },
       puedeRegistrarIndividual() {
         const i = this.individual;
@@ -1561,60 +1999,54 @@
       },
       registrarIndividual() {
         const i = this.individual;
-        if (i.cargando) return; // guard doble-click
+        if (i.cargando) return;
         if (!this.puedeRegistrarIndividual()) { this.toast('Completa todos los campos', 'warn'); return; }
         i.cargando = true;
         const safety = setTimeout(() => {
           if (i.cargando) { i.cargando = false; this.toast('El servidor tardó demasiado, reintenta', 'warn'); }
         }, 45000);
-        google.script.run
-          .withSuccessHandler(res => {
-            clearTimeout(safety);
-            i.cargando = false;
-            if (res && res.exito) {
-              this.toast('Movimiento registrado: ' + res.idMovimiento, 'ok');
-              this.limpiarIndividual();
-              this.refrescarResumen();
-            } else {
-              this.toast(res && res.mensaje || 'No se pudo registrar', 'err');
-            }
-          })
-          .withFailureHandler(err => {
-            clearTimeout(safety);
-            i.cargando = false;
-            this.toast('Error de red: ' + (err && err.message ? err.message : err), 'err');
-          })
-          .registrarMovimiento({
-            parte: i.parte,
-            destino: i.destino,
-            responsable: i.responsable,
-            cantidad: i.cantidad,
-            tipo: i.tipoMov,
-            documento: i.documento
-          });
+        this.rpc('registrarMovimiento', {
+          parte: i.parte,
+          destino: i.destino,
+          responsable: i.responsable,
+          cantidad: i.cantidad,
+          tipo: i.tipoMov,
+          documento: i.documento
+        }).then(res => {
+          clearTimeout(safety);
+          i.cargando = false;
+          if (res && res.exito) {
+            this.toast('Movimiento registrado: ' + res.idMovimiento, 'ok');
+            this.limpiarIndividual();
+            this.refrescarResumen();
+          } else {
+            this.toast(res && res.mensaje || 'No se pudo registrar', 'err');
+          }
+        }).catch(err => {
+          clearTimeout(safety);
+          i.cargando = false;
+          this.toast('Error: ' + (err && err.message ? err.message : err), 'err');
+        });
       },
       limpiarIndividual() {
         this.individual.parte = '';
         this.individual.articulo = null;
         this.individual.destino = '';
         this.individual.cantidad = '';
-        this.individual.responsable = '';
+        this.individual.responsable = this.sesion.nombre || ''; // re-autofill
         this.individual.documento = '';
         this.individual.sugerencias = [];
         this.individual.mostrarSugerencias = false;
-        this.individual.cargando = false; // safety reset
+        this.individual.cargando = false;
       },
 
       // ======================= MASIVO =======================
       cargarDocumentosMasivo() {
         this.masivo.cargandoDocs = true;
-        google.script.run
-          .withSuccessHandler(docs => {
-            this.masivo.documentos = docs || [];
-            this.masivo.cargandoDocs = false;
-          })
-          .withFailureHandler(() => { this.masivo.cargandoDocs = false; })
-          .obtenerDocumentosActivos();
+        this.rpc('obtenerDocumentosActivos').then(res => {
+          this.masivo.documentos = (res && res.documentos) || [];
+          this.masivo.cargandoDocs = false;
+        }).catch(() => { this.masivo.cargandoDocs = false; });
       },
       cargarDocumento(doc) {
         this.masivo.documento = doc;
@@ -1639,45 +2071,39 @@
             this.cargarDocumento(existente.documento);
             return;
           }
-          // Solo completadas → se puede re-preparar para agregar nuevas
           if (!confirm('Documento "' + existente.documento + '" ya existe con todas sus líneas completadas. ¿Agregar nuevas líneas desde DATA_MASIVO?')) {
             return;
           }
         }
         this.masivo.procesando = true;
-        google.script.run
-          .withSuccessHandler(res => {
-            this.masivo.procesando = false;
-            if (res && res.exito) {
-              this.masivo.documentoActivo = d.toUpperCase();
-              this.toast('Preparado: ' + res.creados + ' nuevas · ' + res.existentes + ' existentes', 'ok');
-              this.cargarMasivo();
-              this.cargarDocumentosMasivo();
-            } else {
-              this.toast(res && res.mensaje || 'Error', 'err');
-            }
-          })
-          .withFailureHandler(() => { this.masivo.procesando = false; this.toast('Error de red', 'err'); })
-          .prepararTrabajoMasivo(d);
+        this.rpc('prepararTrabajoMasivo', d).then(res => {
+          this.masivo.procesando = false;
+          if (res && res.exito) {
+            this.masivo.documentoActivo = d.toUpperCase();
+            this.toast('Preparado: ' + res.creados + ' nuevas · ' + res.existentes + ' existentes', 'ok');
+            this.cargarMasivo();
+            this.cargarDocumentosMasivo();
+          } else {
+            this.toast(res && res.mensaje || 'Error', 'err');
+          }
+        }).catch(() => { this.masivo.procesando = false; this.toast('Error de red', 'err'); });
       },
       cargarMasivo() {
         const d = this.masivo.documentoActivo || this.masivo.documento;
         if (!d) return;
         this.masivo.cargando = true;
-        google.script.run
-          .withSuccessHandler(items => {
-            this.masivo.cargando = false;
-            this.masivo.documentoActivo = d.toUpperCase();
-            this.masivo.items = (items || []).map(it => Object.assign(it, {
-              _cantidadInput: it.cantidadPendiente > 0 ? it.cantidadPendiente : '',
-              _destinoInput: it.ultimaUbicacionDestino || '',
-              _obsInput: it.observacion || '',
-              _procesando: false
-            }));
-            this.calcularResumenMasivo();
-          })
-          .withFailureHandler(() => { this.masivo.cargando = false; this.toast('Error al cargar trabajo', 'err'); })
-          .obtenerTrabajoMasivo(d, '');
+        this.rpc('obtenerTrabajoMasivo', d, '').then(res => {
+          this.masivo.cargando = false;
+          this.masivo.documentoActivo = d.toUpperCase();
+          const items = (res && res.items) || [];
+          this.masivo.items = items.map(it => Object.assign(it, {
+            _cantidadInput: it.cantidadPendiente > 0 ? it.cantidadPendiente : '',
+            _destinoInput: it.ultimaUbicacionDestino || '',
+            _obsInput: it.observacion || '',
+            _procesando: false
+          }));
+          this.calcularResumenMasivo();
+        }).catch(() => { this.masivo.cargando = false; this.toast('Error al cargar trabajo', 'err'); });
       },
       calcularResumenMasivo() {
         const items = this.masivo.items || [];
@@ -1713,33 +2139,24 @@
         const d = (item._destinoInput || '').trim();
         if (!c || c <= 0) { this.toast('Cantidad inválida', 'warn'); return; }
         if (!d) { this.toast('Falta destino', 'warn'); return; }
-        if (!this.individual.responsable && !this.masivo._responsableDefault) {
-          // pedir responsable del dropdown general de individual como default
-        }
-        const responsable = this.masivo._responsableDefault || this.individual.responsable || this.responsables[0];
-        if (!responsable) { this.toast('No hay responsables configurados', 'err'); return; }
+        const responsable = this.sesion.nombre || this.individual.responsable || this.responsables[0];
+        if (!responsable) { this.toast('Sin responsable (verifica tu perfil)', 'err'); return; }
         item._procesando = true;
-        google.script.run
-          .withSuccessHandler(res => {
-            item._procesando = false;
-            if (res && res.exito) {
-              this.toast(res.mensaje || 'OK', 'ok');
-              this.cargarMasivo();
-            } else {
-              this.toast(res && res.mensaje || 'Error', 'err');
-            }
-          })
-          .withFailureHandler(() => { item._procesando = false; this.toast('Error de red', 'err'); })
-          .registrarTrabajoMasivo(item.rowNumber, c, d, responsable, item._obsInput || '');
+        this.rpc('registrarTrabajoMasivo', item.rowNumber, c, d, responsable, item._obsInput || '').then(res => {
+          item._procesando = false;
+          if (res && res.exito) {
+            this.toast(res.mensaje || 'OK', 'ok');
+            this.cargarMasivo();
+          } else {
+            this.toast(res && res.mensaje || 'Error', 'err');
+          }
+        }).catch(() => { item._procesando = false; this.toast('Error de red', 'err'); });
       },
       guardarObservacionMasiva(item) {
-        google.script.run
-          .withSuccessHandler(res => {
-            if (res && res.exito) this.toast('Observación guardada', 'ok');
-            else this.toast(res && res.mensaje || 'Error', 'err');
-          })
-          .withFailureHandler(() => this.toast('Error de red al guardar observación', 'err'))
-          .guardarEdicionTrabajoMasivo(item.rowNumber, item._obsInput || '');
+        this.rpc('guardarEdicionTrabajoMasivo', item.rowNumber, item._obsInput || '').then(res => {
+          if (res && res.exito) this.toast('Observación guardada', 'ok');
+          else this.toast(res && res.mensaje || 'Error', 'err');
+        }).catch(() => this.toast('Error de red', 'err'));
       },
       chipEstado(estado) {
         return {
@@ -1761,16 +2178,11 @@
       // ======================= EJECUCIÓN SAP =======================
       cargarPendientesSap() {
         this.ejecucion.cargando = true;
-        google.script.run
-          .withSuccessHandler(res => {
-            this.ejecucion.pendientes = (res || []).map(p => Object.assign(p, { _procesando: false }));
-            this.ejecucion.cargando = false;
-          })
-          .withFailureHandler(() => { this.ejecucion.cargando = false; this.toast('Error al cargar pendientes', 'err'); })
-          .obtenerPendientesSap(1000);
-      },
-      guardarEjecutor() {
-        try { localStorage.setItem('uby_ejecutor', this.ejecucion.ejecutor || ''); } catch (e) {}
+        this.rpc('obtenerPendientesSap', 1000).then(res => {
+          const pend = (res && res.pendientes) || [];
+          this.ejecucion.pendientes = pend.map(p => Object.assign(p, { _procesando: false }));
+          this.ejecucion.cargando = false;
+        }).catch(() => { this.ejecucion.cargando = false; this.toast('Error al cargar pendientes', 'err'); });
       },
       pendientesFiltrados() {
         const f = (this.ejecucion.filtro || '').toLowerCase().trim();
@@ -1795,55 +2207,44 @@
         return f.length > 0 && f.every(p => this.ejecucion.seleccionados.includes(p.rowNumber));
       },
       ejecutarUno(item) {
-        if (!this.ejecucion.ejecutor) { this.toast('Selecciona quién ejecuta', 'warn'); return; }
         if (item._procesando) return;
         item._procesando = true;
-        google.script.run
-          .withSuccessHandler(res => {
-            item._procesando = false;
-            if (res && res.exito) {
-              this.toast(res.mensaje || 'Ejecutado', 'ok');
-              this.cargarPendientesSap();
-              this.refrescarResumen();
-            } else {
-              this.toast(res && res.mensaje || 'Error', 'err');
-            }
-          })
-          .withFailureHandler(() => { item._procesando = false; this.toast('Error de red', 'err'); })
-          .ejecutarSap(item.rowNumber, this.ejecucion.ejecutor, this.ejecucion.comentario || '');
+        this.rpc('ejecutarSap', item.rowNumber, this.ejecucion.comentario || '').then(res => {
+          item._procesando = false;
+          if (res && res.exito) {
+            this.toast(res.mensaje || 'Ejecutado', 'ok');
+            this.cargarPendientesSap();
+            this.refrescarResumen();
+          } else {
+            this.toast(res && res.mensaje || 'Error', 'err');
+          }
+        }).catch(() => { item._procesando = false; this.toast('Error de red', 'err'); });
       },
       ejecutarLote() {
-        if (!this.ejecucion.ejecutor) { this.toast('Selecciona quién ejecuta', 'warn'); return; }
         if (this.ejecucion.seleccionados.length === 0) { this.toast('Marca al menos un movimiento', 'warn'); return; }
         const count = this.ejecucion.seleccionados.length;
-        if (!confirm('¿Ejecutar ' + count + ' movimiento(s) en SAP como ' + this.ejecucion.ejecutor + '?')) return;
+        if (!confirm('¿Ejecutar ' + count + ' movimiento(s) en SAP como ' + this.sesion.nombre + '?')) return;
         this.ejecucion.cargando = true;
-        google.script.run
-          .withSuccessHandler(res => {
-            this.ejecucion.cargando = false;
-            if (res && res.exito) {
-              this.toast(res.mensaje, 'ok');
-              this.ejecucion.seleccionados = [];
-              this.cargarPendientesSap();
-              this.refrescarResumen();
-            } else {
-              this.toast(res && res.mensaje || 'Error', 'err');
-            }
-          })
-          .withFailureHandler(() => { this.ejecucion.cargando = false; this.toast('Error de red', 'err'); })
-          .ejecutarSapLote(this.ejecucion.seleccionados, this.ejecucion.ejecutor);
+        this.rpc('ejecutarSapLote', this.ejecucion.seleccionados).then(res => {
+          this.ejecucion.cargando = false;
+          if (res && res.exito) {
+            this.toast(res.mensaje, 'ok');
+            this.ejecucion.seleccionados = [];
+            this.cargarPendientesSap();
+            this.refrescarResumen();
+          } else {
+            this.toast(res && res.mensaje || 'Error', 'err');
+          }
+        }).catch(() => { this.ejecucion.cargando = false; this.toast('Error de red', 'err'); });
       },
 
       // ======================= HISTORIAL =======================
       cargarHistorial() {
         this.historial.cargando = true;
-        google.script.run
-          .withSuccessHandler(registros => {
-            this.historial.registros = registros || [];
-            this.historial.cargando = false;
-          })
-          .withFailureHandler(() => { this.historial.cargando = false; this.toast('Error al cargar historial', 'err'); })
-          .obtenerHistorialMovimientos(this.historial.limite);
+        this.rpc('obtenerHistorialMovimientos', this.historial.limite).then(res => {
+          this.historial.registros = (res && res.registros) || [];
+          this.historial.cargando = false;
+        }).catch(() => { this.historial.cargando = false; this.toast('Error al cargar historial', 'err'); });
       },
       historialFiltrado() {
         const f = (this.historial.filtro || '').toLowerCase().trim();
@@ -1878,17 +2279,21 @@
         this.filtrarPalette();
       },
       filtrarPalette() {
-        const base = [
-          { titulo: 'Ir al Menú',            subtitulo: 'Dashboard principal',          icono: 'layout-dashboard', atajo: '',  accion: () => this.navegar('menu') },
-          { titulo: 'Buscador',              subtitulo: 'Consultar DATA_SAP',           icono: 'search',           atajo: '/', accion: () => this.navegar('buscador') },
-          { titulo: 'Ingreso individual',    subtitulo: 'Registrar un movimiento',      icono: 'package-plus',     atajo: '',  accion: () => this.navegar('individual') },
-          { titulo: 'Ingreso masivo',        subtitulo: 'Preparar trabajo desde documento', icono: 'layers',       atajo: '',  accion: () => this.navegar('masivo') },
-          { titulo: 'Ejecución SAP',         subtitulo: 'Marcar movimientos como ejecutados', icono: 'check-square', atajo: '',  accion: () => this.navegar('ejecucion') },
-          { titulo: 'Historial',             subtitulo: 'Últimos movimientos',          icono: 'history',          atajo: '',  accion: () => this.navegar('historial') },
-          { titulo: 'Refrescar dashboard',   subtitulo: 'Recalcular métricas',          icono: 'refresh-cw',       atajo: '',  accion: () => this.refrescarResumen(true) },
-          { titulo: 'Refrescar índice SAP',  subtitulo: 'Reconstruir desde DATA_SAP',   icono: 'database',         atajo: '',  accion: () => this.refrescarIndice() },
-          { titulo: this.dark ? 'Modo claro' : 'Modo oscuro', subtitulo: 'Cambiar apariencia', icono: this.dark ? 'sun' : 'moon', atajo: '',  accion: () => this.toggleTema() }
+        const baseTodos = [
+          { titulo: 'Ir al Menú',            subtitulo: 'Dashboard principal',          icono: 'layout-dashboard', atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('menu') },
+          { titulo: 'Buscador',              subtitulo: 'Consultar DATA_SAP',           icono: 'search',           atajo: '/', rol: 'AUXILIAR', accion: () => this.navegar('buscador') },
+          { titulo: 'Ingreso individual',    subtitulo: 'Registrar un movimiento',      icono: 'package-plus',     atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('individual') },
+          { titulo: 'Ingreso masivo',        subtitulo: 'Preparar trabajo desde documento', icono: 'layers',       atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('masivo') },
+          { titulo: 'Ejecución SAP',         subtitulo: 'Marcar movimientos como ejecutados', icono: 'check-square', atajo: '', rol: 'AGENTE', accion: () => this.navegar('ejecucion') },
+          { titulo: 'Historial',             subtitulo: 'Últimos movimientos',          icono: 'history',          atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('historial') },
+          { titulo: 'Gestionar usuarios',    subtitulo: 'Crear, editar, resetear PINs', icono: 'users-round',      atajo: '',  rol: 'AGENTE',   accion: () => this.navegar('usuarios') },
+          { titulo: 'Refrescar dashboard',   subtitulo: 'Recalcular métricas',          icono: 'refresh-cw',       atajo: '',  rol: 'AUXILIAR', accion: () => this.refrescarResumen(true) },
+          { titulo: 'Refrescar índice SAP',  subtitulo: 'Reconstruir desde DATA_SAP',   icono: 'database',         atajo: '',  rol: 'AUXILIAR', accion: () => this.refrescarIndice() },
+          { titulo: 'Cambiar mi PIN',        subtitulo: 'Actualizar credencial',        icono: 'key-round',        atajo: '',  rol: 'AUXILIAR', accion: () => this.abrirCambiarPin() },
+          { titulo: 'Cerrar sesión',         subtitulo: 'Salir de la app',              icono: 'log-out',          atajo: '',  rol: 'AUXILIAR', accion: () => this.cerrarSesion() },
+          { titulo: this.dark ? 'Modo claro' : 'Modo oscuro', subtitulo: 'Cambiar apariencia', icono: this.dark ? 'sun' : 'moon', atajo: '', rol: 'AUXILIAR', accion: () => this.toggleTema() }
         ];
+        const base = baseTodos.filter(r => this.puedeVer(r.rol));
         const q = (this.palette.query || '').toLowerCase().trim();
         this.palette.resultados = q
           ? base.filter(r => (r.titulo+' '+r.subtitulo).toLowerCase().includes(q))

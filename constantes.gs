@@ -9,7 +9,52 @@ const HOJAS = {
   DATA_MASIVO: "DATA_MASIVO",
   TRABAJO_MASIVO: "TRABAJO_MASIVO",
   BASE_OPERATIVA: "BASE_OPERATIVA",
-  LISTAS_CONTROL: "LISTAS_CONTROL"
+  LISTAS_CONTROL: "LISTAS_CONTROL",
+  USUARIOS: "USUARIOS"
+};
+
+const ROLES = {
+  AGENTE: "AGENTE",
+  AUXILIAR: "AUXILIAR"
+};
+
+const ROLES_JERARQUIA = {
+  AUXILIAR: 1,
+  AGENTE: 2
+};
+
+const USUARIOS_HEADERS = [
+  "USUARIO",
+  "NOMBRE",
+  "PIN_HASH",
+  "SALT",
+  "ROL",
+  "ACTIVO",
+  "ULTIMO_ACCESO",
+  "FECHA_CREACION",
+  "CREADO_POR"
+];
+
+const USUARIOS_COLS = {
+  USUARIO: 1,
+  NOMBRE: 2,
+  PIN_HASH: 3,
+  SALT: 4,
+  ROL: 5,
+  ACTIVO: 6,
+  ULTIMO_ACCESO: 7,
+  FECHA_CREACION: 8,
+  CREADO_POR: 9
+};
+
+const SESION_DURACION_MS = 24 * 60 * 60 * 1000; // 24 horas, se renueva en cada RPC
+
+// Usuario bootstrap: se crea automáticamente al primer login si no existe.
+const USUARIO_BOOTSTRAP = {
+  usuario: "edward",
+  nombre: "Edward",
+  pin: "5991",
+  rol: "AGENTE"
 };
 
 // Índices 0-based en arrays getValues() para DATA_SAP

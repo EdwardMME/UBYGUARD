@@ -1,21 +1,14 @@
 /**
- * UBYGUARD - Módulo de Ejecución SAP.
- * Flujo: auxiliar crea movimiento → operador SAP lo ejecuta en SAP →
- * marca la línea como ejecutada desde este módulo (en vez de editar el Sheet).
- *
- * Columnas que maneja este módulo en BASE_OPERATIVA:
- *   M (13): checkbox SAP → true
- *   N (14): fecha de ejecución → new Date()
- *   O (15): ejecutado por → nombre del operador
- *   P (16): comentario / movimiento SAP → opcional
+ * UBYGUARD - Módulo de Ejecución SAP. Solo AGENTE.
+ * El "ejecutor" se toma del token (sesion.nombre resuelto en backend).
  */
 
-function obtenerPendientesSap(limite) {
-  try {
+function obtenerPendientesSap(token, limite) {
+  return conSesion_(token, ROLES.AGENTE, function() {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJAS.BASE_OPERATIVA);
-    if (!sheet) return [];
+    if (!sheet) return { exito: true, pendientes: [] };
     const lastRow = sheet.getLastRow();
-    if (lastRow < 2) return [];
+    if (lastRow < 2) return { exito: true, pendientes: [] };
 
     const ventana = Math.min(lastRow - 1, Math.max(Number(limite) || 1000, 50));
     const filaInicial = lastRow - ventana + 1;
@@ -26,19 +19,17 @@ function obtenerPendientesSap(limite) {
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       if (!tieneDatosHistorial(row)) continue;
-      if (row[12] === true) continue; // ya ejecutado en SAP
+      if (row[12] === true) continue;
       const mov = mapearMovimientoHistorial(row, timeZone);
       mov.rowNumber = filaInicial + i;
       resultados.push(mov);
     }
-    return resultados.reverse();
-  } catch (e) {
-    return [];
-  }
+    return { exito: true, pendientes: resultados.reverse() };
+  });
 }
 
-function ejecutarSap(rowNumber, ejecutor, comentario) {
-  try {
+function ejecutarSap(token, rowNumber, comentario) {
+  return conSesion_(token, ROLES.AGENTE, function(sesion) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJAS.BASE_OPERATIVA);
     if (!sheet) return { exito: false, mensaje: "No existe BASE_OPERATIVA" };
 
@@ -47,43 +38,30 @@ function ejecutarSap(rowNumber, ejecutor, comentario) {
       return { exito: false, mensaje: "Fila inválida" };
     }
 
-    const ejec = validarTexto_(ejecutor, null, "ejecutor");
-    if (!ejec.ok) return { exito: false, mensaje: ejec.mensaje };
+    const nombreEjecutor = obtenerNombreUsuario_(sesion.usuario);
 
     const actual = sheet.getRange(row, 13).getValue();
-    if (actual === true) {
-      return { exito: false, mensaje: "Este movimiento ya estaba ejecutado" };
-    }
+    if (actual === true) return { exito: false, mensaje: "Ya estaba ejecutado" };
 
     sheet.getRange(row, 13).setValue(true);
     sheet.getRange(row, 14).setValue(new Date());
-    sheet.getRange(row, 15).setValue(ejec.valor);
-    if (comentario) {
-      sheet.getRange(row, 16).setValue(normalizarTexto(comentario));
-    }
+    sheet.getRange(row, 15).setValue(nombreEjecutor);
+    if (comentario) sheet.getRange(row, 16).setValue(normalizarTexto(comentario));
 
     cacheInvalidarSimple_(CACHE_KEYS.RESUMEN_INICIO);
-    return { exito: true, mensaje: "Movimiento ejecutado en SAP" };
-  } catch (e) {
-    return { exito: false, mensaje: "Error: " + (e && e.message ? e.message : e) };
-  }
+    return { exito: true, mensaje: "Ejecutado por " + nombreEjecutor };
+  });
 }
 
-/**
- * Ejecución en lote. Más eficiente para marcar muchos movimientos
- * porque hace una sola escritura por columna en el rango completo.
- */
-function ejecutarSapLote(rowNumbers, ejecutor) {
-  try {
+function ejecutarSapLote(token, rowNumbers) {
+  return conSesion_(token, ROLES.AGENTE, function(sesion) {
     if (!Array.isArray(rowNumbers) || rowNumbers.length === 0) {
       return { exito: false, mensaje: "No seleccionaste movimientos" };
     }
-    const ejec = validarTexto_(ejecutor, null, "ejecutor");
-    if (!ejec.ok) return { exito: false, mensaje: ejec.mensaje };
-
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJAS.BASE_OPERATIVA);
     if (!sheet) return { exito: false, mensaje: "No existe BASE_OPERATIVA" };
 
+    const nombreEjecutor = obtenerNombreUsuario_(sesion.usuario);
     const ahora = new Date();
     let exitos = 0, saltados = 0, errores = 0;
 
@@ -95,7 +73,7 @@ function ejecutarSapLote(rowNumbers, ejecutor) {
         if (actual === true) { saltados++; continue; }
         sheet.getRange(row, 13).setValue(true);
         sheet.getRange(row, 14).setValue(ahora);
-        sheet.getRange(row, 15).setValue(ejec.valor);
+        sheet.getRange(row, 15).setValue(nombreEjecutor);
         exitos++;
       } catch (e) { errores++; }
     }
@@ -106,7 +84,14 @@ function ejecutarSapLote(rowNumbers, ejecutor) {
       mensaje: exitos + " ejecutados" + (saltados ? " · " + saltados + " ya estaban" : "") + (errores ? " · " + errores + " errores" : ""),
       exitos: exitos, saltados: saltados, errores: errores
     };
-  } catch (e) {
-    return { exito: false, mensaje: "Error: " + (e && e.message ? e.message : e) };
-  }
+  });
+}
+
+function obtenerNombreUsuario_(usuario) {
+  try {
+    const sheet = asegurarHojaUsuarios_();
+    const fila = buscarFilaUsuario_(sheet, usuario);
+    if (fila) return fila.data[USUARIOS_COLS.NOMBRE - 1] || usuario;
+  } catch (e) {}
+  return usuario;
 }

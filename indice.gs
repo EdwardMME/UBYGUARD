@@ -76,11 +76,49 @@ function invalidarIndiceSap() {
 }
 
 /**
- * Refresca el índice y lo guarda en caché. Útil como trigger horario.
+ * Refresca el índice y lo guarda en caché. Útil como trigger horario
+ * o invocado por un AGENTE desde el frontend.
  */
 function precalentarIndiceSap() {
   invalidarIndiceSap();
   return obtenerIndiceSap_(true);
+}
+
+/**
+ * Endpoint público (requiere sesión) para reconstruir el índice.
+ */
+function refrescarIndiceSap(token) {
+  return conSesion_(token, ROLES.AUXILIAR, function() {
+    const idx = precalentarIndiceSap();
+    return { exito: true, total: idx.total || 0, mensaje: "Índice actualizado: " + (idx.total || 0) + " partes" };
+  });
+}
+
+function buscarEnTodos(token, valor) {
+  return conSesion_(token, ROLES.AUXILIAR, function() {
+    const v = (valor || "").toString().toUpperCase().trim();
+    if (!v) return { exito: true, total: 0, resultados: [] };
+    const idx = obtenerIndiceSap_(false);
+    const filas = idx.filas;
+    const max = LIMITES.RESULTADOS_BUSQUEDA;
+    const resultados = [];
+    for (let i = 0; i < filas.length; i++) {
+      const parte = String(filas[i][0] || "").toUpperCase();
+      const codigo = String(filas[i][1] || "").toUpperCase();
+      const desc = String(filas[i][2] || "").toUpperCase();
+      const ubic = String(filas[i][4] || "").toUpperCase();
+      const coincidencias = [];
+      if (parte.indexOf(v) > -1) coincidencias.push("PARTE");
+      if (codigo.indexOf(v) > -1) coincidencias.push("ARTICULO");
+      if (desc.indexOf(v) > -1) coincidencias.push("DESCRIPCION");
+      if (ubic.indexOf(v) > -1) coincidencias.push("UBICACION");
+      if (coincidencias.length > 0) {
+        resultados.push({ registro: filas[i], campos: coincidencias });
+        if (resultados.length >= max) break;
+      }
+    }
+    return { exito: true, total: resultados.length, resultados: resultados };
+  });
 }
 
 /**
@@ -210,48 +248,3 @@ function obtenerEstadoIndice() {
   };
 }
 
-/**
- * Fuerza reconstrucción del índice desde Sheets ignorando el caché.
- * Expuesto al frontend para cuando el usuario sospecha que está stale.
- */
-function refrescarIndiceSap() {
-  try {
-    const idx = precalentarIndiceSap();
-    return { exito: true, total: idx.total || 0, mensaje: "Índice actualizado: " + (idx.total || 0) + " partes" };
-  } catch (e) {
-    return { exito: false, mensaje: "Error: " + (e && e.message ? e.message : e) };
-  }
-}
-
-/**
- * Búsqueda diagnóstica: devuelve en qué campos aparece el valor.
- * Útil para que el usuario sepa por qué no apareció su búsqueda.
- */
-function buscarEnTodos(valor) {
-  try {
-    const v = (valor || "").toString().toUpperCase().trim();
-    if (!v) return { total: 0, resultados: [] };
-    const idx = obtenerIndiceSap_(false);
-    const filas = idx.filas;
-    const max = LIMITES.RESULTADOS_BUSQUEDA;
-    const resultados = [];
-    for (let i = 0; i < filas.length; i++) {
-      const parte = String(filas[i][0] || "").toUpperCase();
-      const codigo = String(filas[i][1] || "").toUpperCase();
-      const desc = String(filas[i][2] || "").toUpperCase();
-      const ubic = String(filas[i][4] || "").toUpperCase();
-      const coincidencias = [];
-      if (parte.indexOf(v) > -1) coincidencias.push("PARTE");
-      if (codigo.indexOf(v) > -1) coincidencias.push("ARTICULO");
-      if (desc.indexOf(v) > -1) coincidencias.push("DESCRIPCION");
-      if (ubic.indexOf(v) > -1) coincidencias.push("UBICACION");
-      if (coincidencias.length > 0) {
-        resultados.push({ registro: filas[i], campos: coincidencias });
-        if (resultados.length >= max) break;
-      }
-    }
-    return { total: resultados.length, resultados: resultados };
-  } catch (e) {
-    return { total: 0, resultados: [], error: String(e) };
-  }
-}

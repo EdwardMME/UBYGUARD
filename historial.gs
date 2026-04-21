@@ -1,15 +1,13 @@
 /**
- * UBYGUARD - Historial y dashboard.
- * obtenerResumenInicio cachea la salida 60s para no escanear BASE_OPERATIVA
- * en cada carga del menú.
+ * UBYGUARD - Historial y dashboard. Requiere sesión (AUXILIAR+).
  */
 
-function obtenerHistorialMovimientos(limite) {
-  try {
+function obtenerHistorialMovimientos(token, limite) {
+  return conSesion_(token, ROLES.AUXILIAR, function() {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJAS.BASE_OPERATIVA);
-    if (!sheet) return [];
+    if (!sheet) return { exito: true, registros: [] };
     const lastRow = sheet.getLastRow();
-    if (lastRow < 2) return [];
+    if (lastRow < 2) return { exito: true, registros: [] };
 
     const totalRegistros = lastRow - 1;
     const pedido = Number(limite) || LIMITES.HISTORIAL_DEFAULT;
@@ -21,18 +19,17 @@ function obtenerHistorialMovimientos(limite) {
       .reverse();
     const timeZone = Session.getScriptTimeZone();
 
-    return data
+    const registros = data
       .filter(tieneDatosHistorial)
       .map(row => mapearMovimientoHistorial(row, timeZone));
-  } catch (e) {
-    return [];
-  }
+    return { exito: true, registros: registros };
+  });
 }
 
-function obtenerResumenInicio() {
-  try {
+function obtenerResumenInicio(token) {
+  return conSesion_(token, ROLES.AUXILIAR, function() {
     const cached = cacheObtenerSimple_(CACHE_KEYS.RESUMEN_INICIO);
-    if (cached) return cached;
+    if (cached) return Object.assign({ exito: true }, cached);
 
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     const baseOperativa = spreadsheet.getSheetByName(HOJAS.BASE_OPERATIVA);
@@ -49,9 +46,6 @@ function obtenerResumenInicio() {
     if (baseOperativa) {
       const lastRow = baseOperativa.getLastRow();
       if (lastRow > 1) {
-        // Lee solo las últimas N filas. Los KPIs (hoy, últimos 5, tendencia 7d)
-        // caben ampliamente en 3000 filas. Para pendientes SAP más antiguos
-        // habría que hacer una pasada específica con query — por ahora aproximamos.
         const ventana = Math.min(lastRow - 1, 3000);
         const filaInicial = lastRow - ventana + 1;
         const data = baseOperativa
@@ -61,15 +55,12 @@ function obtenerResumenInicio() {
         for (let i = 0; i < data.length; i++) {
           const row = data[i];
           if (!tieneDatosHistorial(row)) continue;
-
           if (esFechaDeHoy(row[1], hoy, timeZone)) movimientosHoy++;
           if (row[12] !== true) pendientesSap++;
-
           const diasAtras = diferenciaDias_(row[1], ahora);
           if (diasAtras != null && diasAtras >= 0 && diasAtras < 7) {
             tendencia7d[6 - diasAtras]++;
           }
-
           movimientos.push(mapearMovimientoHistorial(row, timeZone));
         }
       }
@@ -91,27 +82,12 @@ function obtenerResumenInicio() {
     };
 
     cachePonerSimple_(CACHE_KEYS.RESUMEN_INICIO, resumen, CACHE_TTL.RESUMEN_INICIO);
-    return resumen;
-  } catch (e) {
-    return {
-      movimientosHoy: 0,
-      pendientesSap: 0,
-      lineasActivasMasivo: 0,
-      documentosActivosMasivo: 0,
-      ultimoMovimiento: null,
-      ultimosMovimientos: [],
-      tendencia7d: [0, 0, 0, 0, 0, 0, 0],
-      totalSap: 0,
-      generadoEn: Date.now(),
-      error: (e && e.message ? e.message : String(e))
-    };
-  }
+    return Object.assign({ exito: true }, resumen);
+  });
 }
 
 function obtenerResumenTrabajoMasivoInicio_(sheet) {
-  if (!sheet || sheet.getLastRow() < 2) {
-    return { lineasActivas: 0, documentosActivos: 0 };
-  }
+  if (!sheet || sheet.getLastRow() < 2) return { lineasActivas: 0, documentosActivos: 0 };
   const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 12).getValues();
   const documentosActivos = {};
   let lineasActivas = 0;
@@ -127,10 +103,7 @@ function obtenerResumenTrabajoMasivoInicio_(sheet) {
       if (documento) documentosActivos[documento] = true;
     }
   }
-  return {
-    lineasActivas: lineasActivas,
-    documentosActivos: Object.keys(documentosActivos).length
-  };
+  return { lineasActivas: lineasActivas, documentosActivos: Object.keys(documentosActivos).length };
 }
 
 function formatearFechaHistorial(valor, timeZone) {

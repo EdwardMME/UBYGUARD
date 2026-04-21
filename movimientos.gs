@@ -1,19 +1,17 @@
 /**
  * UBYGUARD - Movimientos individuales.
- * Busca artículo por índice cacheado, valida input, registra en BASE_OPERATIVA
- * y audita el usuario ejecutor.
+ * Busca por parte o código. Requiere sesión (AUXILIAR+).
  */
 
-function buscarArticulo(numeroParte) {
-  try {
-    return obtenerArticuloPorParte_(numeroParte);
-  } catch (e) {
-    return null;
-  }
+function buscarArticulo(token, identificador) {
+  return conSesion_(token, ROLES.AUXILIAR, function() {
+    const art = obtenerArticuloPorIdentificador_(identificador);
+    return { exito: true, articulo: art };
+  });
 }
 
-function registrarMovimiento(datos) {
-  try {
+function registrarMovimiento(token, datos) {
+  return conSesion_(token, ROLES.AUXILIAR, function(sesion) {
     if (!datos) return { exito: false, mensaje: "Faltan datos" };
 
     const parte = validarTexto_(datos.parte, REGEX.NUMERO_PARTE, "número de parte");
@@ -28,9 +26,9 @@ function registrarMovimiento(datos) {
     const cantidad = validarCantidad_(datos.cantidad, "cantidad");
     if (!cantidad.ok) return { exito: false, mensaje: cantidad.mensaje };
 
-    const articulo = obtenerArticuloPorParte_(parte.valor);
+    const articulo = obtenerArticuloPorIdentificador_(parte.valor);
     if (!articulo) {
-      return { exito: false, mensaje: "El número de parte no existe en DATA_SAP" };
+      return { exito: false, mensaje: "El número de parte o código no existe en DATA_SAP" };
     }
 
     const documento = normalizarTexto(datos.documento);
@@ -41,14 +39,12 @@ function registrarMovimiento(datos) {
 
     const idMovimiento = generarID();
 
-    // Ejecutado Por (col O) queda vacío aquí — lo llena el módulo de Ejecución SAP
-    // cuando el responsable de SAP marca el movimiento.
     const fila = [
       idMovimiento,
       new Date(),
       tipo,
       documento,
-      parte.valor,
+      articulo.parte || parte.valor,
       articulo.codigo || "",
       articulo.descripcion || "",
       cantidad.valor,
@@ -67,9 +63,8 @@ function registrarMovimiento(datos) {
 
     return {
       exito: true,
-      idMovimiento: idMovimiento
+      idMovimiento: idMovimiento,
+      registradoPor: sesion.usuario
     };
-  } catch (e) {
-    return { exito: false, mensaje: "Error interno: " + (e && e.message ? e.message : e) };
-  }
+  });
 }
