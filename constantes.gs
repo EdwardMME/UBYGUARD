@@ -1,0 +1,129 @@
+/**
+ * UBYGUARD - Constantes globales
+ * Centraliza nombres de hoja, índices de columna, estados y límites.
+ * Este archivo se carga antes que los demás (orden alfabético en Apps Script).
+ */
+
+const HOJAS = {
+  DATA_SAP: "DATA_SAP",
+  DATA_MASIVO: "DATA_MASIVO",
+  TRABAJO_MASIVO: "TRABAJO_MASIVO",
+  BASE_OPERATIVA: "BASE_OPERATIVA",
+  LISTAS_CONTROL: "LISTAS_CONTROL"
+};
+
+// Índices 0-based en arrays getValues() para DATA_SAP
+const SAP_COL = {
+  ID: 0,
+  NUMERO_PARTE: 1,
+  CODIGO: 2,
+  DESCRIPCION: 3,
+  EXISTENCIA: 4,
+  UBICACION: 7
+};
+
+const BASE_OPERATIVA_WIDTH = 16;
+
+const ESTADOS_LINEA = {
+  PENDIENTE: "PENDIENTE",
+  PARCIAL: "PARCIAL",
+  COMPLETO: "COMPLETO",
+  ERROR: "ERROR"
+};
+
+const ESTADO_MOVIMIENTO = {
+  UBICADO: "Ubicado"
+};
+
+const TIPO_MOVIMIENTO = {
+  INDIVIDUAL: "INDIVIDUAL",
+  INGRESO_MASIVO: "INGRESO MASIVO"
+};
+
+const TIPOS_BUSQUEDA = {
+  PARTE: "PARTE",
+  ARTICULO: "ARTICULO",
+  UBICACION: "UBICACION",
+  DESCRIPCION: "DESCRIPCION"
+};
+
+const LIMITES = {
+  RESULTADOS_BUSQUEDA: 150,
+  RESULTADOS_AUTOCOMPLETE: 12,
+  HISTORIAL_DEFAULT: 200,
+  HISTORIAL_MAX: 1000,
+  TEXTO_MAX: 120,
+  CANTIDAD_MAX: 999999
+};
+
+const CACHE_KEYS = {
+  SAP_INDEX: "sap_idx_v2",
+  RESPONSABLES: "responsables_v1",
+  RESUMEN_INICIO: "resumen_inicio_v1"
+};
+
+const CACHE_TTL = {
+  SAP_INDEX: 21600,
+  RESPONSABLES: 3600,
+  RESUMEN_INICIO: 60
+};
+
+const REGEX = {
+  NUMERO_PARTE: /^[A-Za-z0-9\-_\.\/#]{1,60}$/,
+  DOCUMENTO: /^[A-Za-z0-9\-_\/\.#]{1,60}$/,
+  UBICACION: /^[A-Za-z0-9\-_\.\/\s]{1,60}$/,
+  TEXTO_LIBRE: /^[\s\S]{0,120}$/
+};
+
+const TRABAJO_MASIVO_HEADERS = [
+  "DOCUMENTO",
+  "NUMERO_ARTICULO",
+  "DESCRIPCION_ARTICULO",
+  "NUMERO_PARTE",
+  "CANTIDAD_TOTAL",
+  "CANTIDAD_REGISTRADA",
+  "CANTIDAD_PENDIENTE",
+  "ALMACEN",
+  "UBICACION_ORIGEN",
+  "ULTIMA_UBICACION_DESTINO",
+  "ESTADO",
+  "BLOQUEADO",
+  "RESPONSABLE_ULTIMO_MOVIMIENTO",
+  "FECHA_ULTIMO_MOVIMIENTO",
+  "OBSERVACION",
+  "EDITABLE",
+  "ERROR_CORREGIDO"
+];
+
+const TRABAJO_MASIVO_COLS = {
+  DOCUMENTO: 1,
+  NUMERO_ARTICULO: 2,
+  DESCRIPCION_ARTICULO: 3,
+  NUMERO_PARTE: 4,
+  CANTIDAD_TOTAL: 5,
+  CANTIDAD_REGISTRADA: 6,
+  CANTIDAD_PENDIENTE: 7,
+  ALMACEN: 8,
+  UBICACION_ORIGEN: 9,
+  ULTIMA_UBICACION_DESTINO: 10,
+  ESTADO: 11,
+  BLOQUEADO: 12,
+  RESPONSABLE_ULTIMO_MOVIMIENTO: 13,
+  FECHA_ULTIMO_MOVIMIENTO: 14,
+  OBSERVACION: 15,
+  EDITABLE: 16,
+  ERROR_CORREGIDO: 17
+};
+
+const TRABAJO_MASIVO_SHEET = HOJAS.TRABAJO_MASIVO;
+const DATA_MASIVO_SHEET = HOJAS.DATA_MASIVO;
+const DATA_SAP_SHEET = HOJAS.DATA_SAP;
+const BASE_OPERATIVA_SHEET = HOJAS.BASE_OPERATIVA;
+
+function normalizarTexto(valor) {
+  return (valor == null ? "" : String(valor)).trim();
+}
+
+function normalizarMayus(valor) {
+  return normalizarTexto(valor).toUpperCase();
+}

@@ -1,0 +1,26 @@
+# Claude Code internal state
+.claude/
+
+# clasp: contiene el scriptId, lo mantenemos local (repo es público)
+.clasp.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Dependencias (no las usamos hoy, pero futuro-proof)
+node_modules/
+
+# clasp locks
+.clasp.json.lock
