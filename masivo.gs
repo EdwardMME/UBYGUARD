@@ -46,8 +46,10 @@ function prepararTrabajoMasivo(token, documento) {
       const claveLinea = construirClaveTrabajoMasivo_(linea);
       if (existentes[claveLinea]) { yaExistian++; continue; }
 
-      const sapItem = idxSap.porParte[numeroParte.toUpperCase()]
-        || (idxSap.porCodigo || {})[numeroParte.toUpperCase()]
+      const claveUpper = numeroParte.toUpperCase();
+      const sapItem = idxSap.porParte[claveUpper]
+        || (idxSap.porCodigo || {})[claveUpper]
+        || (idxSap.porReferencia || {})[claveUpper]
         || null;
       if (!sapItem) sinSap++;
 

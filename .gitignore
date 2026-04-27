@@ -24,3 +24,12 @@ node_modules/
 
 # clasp locks
 .clasp.json.lock
+
+# Datos internos del negocio (catálogo de partes, refs cruzadas)
+*.xlsx
+*.xls
+referencias_cruzadas_limpio.csv
+referencias_cruzadas_limpio.tsv
+
+# Temporales del análisis
+.tmp_*

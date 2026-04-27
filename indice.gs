@@ -32,7 +32,8 @@ function obtenerIndiceSap_(forzarRebuild) {
 function construirIndiceSapDesdeSheet_() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJAS.DATA_SAP);
   if (!sheet || sheet.getLastRow() < 2) {
-    return { filas: [], porParte: {}, porCodigo: {}, ts: Date.now(), total: 0 };
+    return { filas: [], porParte: {}, porCodigo: {}, porReferencia: {}, refMeta: {},
+             huerfanos: [], totalRefs: 0, ts: Date.now(), total: 0 };
   }
   const lastRow = sheet.getLastRow();
   const ancho = 8;
@@ -46,9 +47,6 @@ function construirIndiceSapDesdeSheet_() {
     const descripcion = (data[i][SAP_COL.DESCRIPCION] == null ? "" : String(data[i][SAP_COL.DESCRIPCION])).trim();
     const ubicacion = (data[i][SAP_COL.UBICACION] == null ? "" : String(data[i][SAP_COL.UBICACION])).trim();
 
-    // Incluir fila si tiene AL MENOS uno de: parte, código o descripción.
-    // (Antes: sólo si tenía parte → se perdían items como CEMENTO cuyo número
-    //  de parte está vacío pero sí tienen código de artículo).
     if (!parte && !codigo && !descripcion) continue;
 
     const registro = [
@@ -66,7 +64,101 @@ function construirIndiceSapDesdeSheet_() {
     const claveCodigo = codigo.toUpperCase();
     if (claveCodigo && !porCodigo[claveCodigo]) porCodigo[claveCodigo] = registro;
   }
-  return { filas: filas, porParte: porParte, porCodigo: porCodigo, ts: Date.now(), total: filas.length };
+
+  // ── Capa de referencias cruzadas ──────────────────────────────────
+  // Carga la hoja REFERENCIAS_CRUZADAS y conecta los grupos al índice SAP.
+  // Para cada grupo: si algún código del grupo está en DATA_SAP, todas las
+  // demás referencias del grupo apuntan a ese mismo registro.
+  // Si el grupo no tiene match en DATA_SAP → huérfano (se reporta).
+  const refsLoaded = cargarReferenciasCruzadas_();
+  const porReferencia = {};
+  const refMeta = {}; // código_ref → { grupoId, codigosDelGrupo[], descripcionGrupo }
+  const huerfanos = [];
+
+  Object.keys(refsLoaded.porGrupo).forEach(function(grupoId) {
+    const codigosGrupo = refsLoaded.porGrupo[grupoId];
+    let registroRepresentante = null;
+    let codigoRepresentante = "";
+
+    // Busca el primer código del grupo que exista en DATA_SAP
+    for (let j = 0; j < codigosGrupo.length; j++) {
+      const c = codigosGrupo[j];
+      if (porParte[c]) {
+        registroRepresentante = porParte[c];
+        codigoRepresentante = c;
+        break;
+      }
+      if (porCodigo[c]) {
+        registroRepresentante = porCodigo[c];
+        codigoRepresentante = c;
+        break;
+      }
+    }
+
+    if (registroRepresentante) {
+      // Mapear todos los demás códigos del grupo como referencias
+      for (let j = 0; j < codigosGrupo.length; j++) {
+        const c = codigosGrupo[j];
+        if (!porParte[c] && !porCodigo[c]) {
+          porReferencia[c] = registroRepresentante;
+          refMeta[c] = {
+            grupoId: grupoId,
+            principal: codigoRepresentante,
+            descripcionGrupo: refsLoaded.descGrupo[grupoId] || ""
+          };
+        }
+      }
+    } else {
+      // Ningún código del grupo está en DATA_SAP
+      huerfanos.push({
+        grupoId: grupoId,
+        codigos: codigosGrupo,
+        descripcion: refsLoaded.descGrupo[grupoId] || ""
+      });
+    }
+  });
+
+  return {
+    filas: filas,
+    porParte: porParte,
+    porCodigo: porCodigo,
+    porReferencia: porReferencia,
+    refMeta: refMeta,
+    huerfanos: huerfanos,
+    totalRefs: Object.keys(porReferencia).length,
+    totalGrupos: Object.keys(refsLoaded.porGrupo).length,
+    ts: Date.now(),
+    total: filas.length
+  };
+}
+
+/**
+ * Lee la hoja REFERENCIAS_CRUZADAS y devuelve la estructura agrupada.
+ * Tolerante: si la hoja no existe o está vacía, devuelve estructura vacía.
+ */
+function cargarReferenciasCruzadas_() {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJAS.REFERENCIAS_CRUZADAS);
+    if (!sheet || sheet.getLastRow() < 2) {
+      return { porGrupo: {}, descGrupo: {} };
+    }
+    const lastRow = sheet.getLastRow();
+    const data = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+    const porGrupo = {};
+    const descGrupo = {};
+    for (let i = 0; i < data.length; i++) {
+      const codigo = String(data[i][REFS_COLS.CODIGO] || "").trim().toUpperCase();
+      const grupoId = String(data[i][REFS_COLS.GRUPO_ID] || "").trim();
+      const desc = String(data[i][REFS_COLS.DESCRIPCION] || "").trim();
+      if (!codigo || !grupoId) continue;
+      if (!porGrupo[grupoId]) porGrupo[grupoId] = [];
+      porGrupo[grupoId].push(codigo);
+      if (desc && !descGrupo[grupoId]) descGrupo[grupoId] = desc;
+    }
+    return { porGrupo: porGrupo, descGrupo: descGrupo };
+  } catch (e) {
+    return { porGrupo: {}, descGrupo: {} };
+  }
 }
 
 function invalidarIndiceSap() {
@@ -99,24 +191,8 @@ function buscarEnTodos(token, valor) {
     const v = (valor || "").toString().toUpperCase().trim();
     if (!v) return { exito: true, total: 0, resultados: [] };
     const idx = obtenerIndiceSap_(false);
-    const filas = idx.filas;
     const max = LIMITES.RESULTADOS_BUSQUEDA;
-    const resultados = [];
-    for (let i = 0; i < filas.length; i++) {
-      const parte = String(filas[i][0] || "").toUpperCase();
-      const codigo = String(filas[i][1] || "").toUpperCase();
-      const desc = String(filas[i][2] || "").toUpperCase();
-      const ubic = String(filas[i][4] || "").toUpperCase();
-      const coincidencias = [];
-      if (parte.indexOf(v) > -1) coincidencias.push("PARTE");
-      if (codigo.indexOf(v) > -1) coincidencias.push("ARTICULO");
-      if (desc.indexOf(v) > -1) coincidencias.push("DESCRIPCION");
-      if (ubic.indexOf(v) > -1) coincidencias.push("UBICACION");
-      if (coincidencias.length > 0) {
-        resultados.push({ registro: filas[i], campos: coincidencias });
-        if (resultados.length >= max) break;
-      }
-    }
+    const resultados = buscarGlobal_(idx, v, max);
     return { exito: true, total: resultados.length, resultados: resultados };
   });
 }
@@ -134,7 +210,6 @@ function buscarEnIndice_(tipo, valor, limite) {
   if (!v) return [];
   const max = Math.min(limite || LIMITES.RESULTADOS_BUSQUEDA, 500);
 
-  // Modo global: barre todas las columnas en una sola pasada
   if (tipo === "TODOS" || tipo === "TODO" || tipo === "") {
     return buscarGlobal_(idx, v, max);
   }
@@ -143,26 +218,51 @@ function buscarEnIndice_(tipo, valor, limite) {
   const col = columnaMap[tipo];
   if (col == null) return buscarGlobal_(idx, v, max);
 
-  // Atajo O(1): búsqueda exacta por parte
+  // Atajo O(1) por parte exacta
   if (tipo === "PARTE" && idx.porParte[v]) {
-    return [idx.porParte[v]];
+    return [empaquetarResultado_(idx.porParte[v], v, "PARTE", null)];
   }
 
   const filas = idx.filas;
   const resultado = [];
+  const yaIncluidos = {}; // dedup por parte+codigo
+
   for (let i = 0; i < filas.length; i++) {
     const cell = String(filas[i][col] || "").toUpperCase();
     if (cell.indexOf(v) > -1) {
-      resultado.push(filas[i]);
-      if (resultado.length >= max) break;
+      const clave = filas[i][0] + "|" + filas[i][1];
+      if (yaIncluidos[clave]) continue;
+      yaIncluidos[clave] = true;
+      resultado.push(empaquetarResultado_(filas[i], v, tipo, null));
+      if (resultado.length >= max) return resultado;
     }
   }
+
+  // Si buscaba por PARTE o ARTICULO, también incluir matches en referencias
+  if ((tipo === "PARTE" || tipo === "ARTICULO") && idx.porReferencia) {
+    const refKeys = Object.keys(idx.porReferencia);
+    for (let i = 0; i < refKeys.length; i++) {
+      const refCode = refKeys[i];
+      if (refCode.indexOf(v) > -1) {
+        const reg = idx.porReferencia[refCode];
+        const clave = reg[0] + "|" + reg[1];
+        if (yaIncluidos[clave]) continue;
+        yaIncluidos[clave] = true;
+        const meta = (idx.refMeta || {})[refCode] || null;
+        resultado.push(empaquetarResultado_(reg, refCode, "REFERENCIA", meta));
+        if (resultado.length >= max) return resultado;
+      }
+    }
+  }
+
   return resultado;
 }
 
 function buscarGlobal_(idx, valor, max) {
   const filas = idx.filas;
   const resultado = [];
+  const yaIncluidos = {};
+
   for (let i = 0; i < filas.length; i++) {
     const parte = String(filas[i][0] || "").toUpperCase();
     const codigo = String(filas[i][1] || "").toUpperCase();
@@ -172,11 +272,49 @@ function buscarGlobal_(idx, valor, max) {
         codigo.indexOf(valor) > -1 ||
         desc.indexOf(valor) > -1 ||
         ubic.indexOf(valor) > -1) {
-      resultado.push(filas[i]);
-      if (resultado.length >= max) break;
+      const clave = filas[i][0] + "|" + filas[i][1];
+      if (yaIncluidos[clave]) continue;
+      yaIncluidos[clave] = true;
+      resultado.push(empaquetarResultado_(filas[i], valor, "TODOS", null));
+      if (resultado.length >= max) return resultado;
+    }
+  }
+
+  // Incluir también matches en referencias cruzadas
+  if (idx.porReferencia) {
+    const refKeys = Object.keys(idx.porReferencia);
+    for (let i = 0; i < refKeys.length; i++) {
+      const refCode = refKeys[i];
+      if (refCode.indexOf(valor) > -1) {
+        const reg = idx.porReferencia[refCode];
+        const clave = reg[0] + "|" + reg[1];
+        if (yaIncluidos[clave]) continue;
+        yaIncluidos[clave] = true;
+        const meta = (idx.refMeta || {})[refCode] || null;
+        resultado.push(empaquetarResultado_(reg, refCode, "REFERENCIA", meta));
+        if (resultado.length >= max) return resultado;
+      }
     }
   }
   return resultado;
+}
+
+/**
+ * Convierte un registro [parte, codigo, desc, stock, ubic] a un objeto
+ * estructurado que el frontend puede mostrar con badges informativos.
+ */
+function empaquetarResultado_(reg, codigoEntrada, encontradoPor, refMeta) {
+  return {
+    parte: reg[0],
+    codigo: reg[1],
+    descripcion: reg[2],
+    stock: reg[3],
+    ubicacion: reg[4],
+    codigoEntrada: codigoEntrada,
+    encontradoPor: encontradoPor,
+    referenciaUsada: encontradoPor === "REFERENCIA" ? codigoEntrada : null,
+    grupoId: refMeta ? refMeta.grupoId : null
+  };
 }
 
 function obtenerArticuloPorParte_(numeroParte) {
@@ -184,58 +322,114 @@ function obtenerArticuloPorParte_(numeroParte) {
 }
 
 /**
- * Busca un artículo por número de parte O código de artículo.
- * Permite trabajar con items que no tienen "parte" en DATA_SAP (como CEMENTO,
- * que sólo tiene código FER100266 en columna C).
+ * Busca un artículo por número de parte, código de artículo, o referencia cruzada.
+ * Devuelve metadata sobre cómo se encontró (PARTE, CODIGO o REFERENCIA).
+ *
+ * Si encontradoPor === 'REFERENCIA':
+ *   - codigoEntrada: el código que el usuario escribió (FER100266)
+ *   - parte/codigo: los códigos canónicos del SAP (60208480)
+ *   - grupoId: ID del grupo de equivalencia
  */
 function obtenerArticuloPorIdentificador_(id) {
   const idx = obtenerIndiceSap_(false);
   const clave = (id || "").toString().trim().toUpperCase();
   if (!clave) return null;
-  const reg = idx.porParte[clave] || (idx.porCodigo || {})[clave];
-  if (!reg) return null;
+
+  // 1) Match directo por parte
+  if (idx.porParte[clave]) {
+    return mapearArticuloDesdeRegistro_(idx.porParte[clave], clave, "PARTE", null);
+  }
+  // 2) Match directo por código
+  if ((idx.porCodigo || {})[clave]) {
+    return mapearArticuloDesdeRegistro_(idx.porCodigo[clave], clave, "CODIGO", null);
+  }
+  // 3) Match vía referencia cruzada
+  if ((idx.porReferencia || {})[clave]) {
+    const meta = (idx.refMeta || {})[clave] || null;
+    return mapearArticuloDesdeRegistro_(idx.porReferencia[clave], clave, "REFERENCIA", meta);
+  }
+  return null;
+}
+
+function mapearArticuloDesdeRegistro_(reg, codigoEntrada, encontradoPor, refMeta) {
   return {
     parte: reg[0],
     codigo: reg[1],
     descripcion: reg[2],
     stock: reg[3],
-    ubicacion: reg[4]
+    ubicacion: reg[4],
+    codigoEntrada: codigoEntrada,
+    encontradoPor: encontradoPor,
+    grupoId: refMeta ? refMeta.grupoId : null,
+    referenciaUsada: encontradoPor === "REFERENCIA" ? codigoEntrada : null
   };
 }
 
 /**
- * Autocomplete para el frontend. Prioriza matches por prefijo, después
- * completa con substring. Devuelve top N (default 12).
+ * Autocomplete: matches por prefijo en parte, código y referencias cruzadas.
+ * Devuelve top N (default 12) sin duplicar el mismo artículo.
  */
 function autocompletarParte(prefijo) {
   const p = (prefijo || "").toString().toUpperCase().trim();
   if (p.length < 2) return [];
   const idx = obtenerIndiceSap_(false);
   const filas = idx.filas;
+  const max = LIMITES.RESULTADOS_AUTOCOMPLETE;
   const startsWith = [];
   const contains = [];
-  const max = LIMITES.RESULTADOS_AUTOCOMPLETE;
+  const yaIncluidos = {};
+
+  function pack(reg, encontradoPor, refUsada) {
+    return {
+      parte: reg[0],
+      codigo: reg[1],
+      descripcion: reg[2],
+      stock: reg[3],
+      ubicacion: reg[4],
+      encontradoPor: encontradoPor,
+      referenciaUsada: refUsada
+    };
+  }
+
+  // 1) Filas SAP — prefix > contains
   for (let i = 0; i < filas.length; i++) {
     const parte = String(filas[i][0] || "").toUpperCase();
-    if (parte.startsWith(p)) {
-      startsWith.push({
-        parte: filas[i][0],
-        codigo: filas[i][1],
-        descripcion: filas[i][2],
-        stock: filas[i][3],
-        ubicacion: filas[i][4]
-      });
+    const codigo = String(filas[i][1] || "").toUpperCase();
+    const clave = parte + "|" + codigo;
+    if (yaIncluidos[clave]) continue;
+
+    if (parte.startsWith(p) || codigo.startsWith(p)) {
+      yaIncluidos[clave] = true;
+      startsWith.push(pack(filas[i], parte.startsWith(p) ? "PARTE" : "CODIGO", null));
       if (startsWith.length >= max) break;
-    } else if (startsWith.length + contains.length < max * 2 && parte.indexOf(p) > -1) {
-      contains.push({
-        parte: filas[i][0],
-        codigo: filas[i][1],
-        descripcion: filas[i][2],
-        stock: filas[i][3],
-        ubicacion: filas[i][4]
-      });
+    } else if (parte.indexOf(p) > -1 || codigo.indexOf(p) > -1) {
+      if (contains.length < max) {
+        yaIncluidos[clave] = true;
+        contains.push(pack(filas[i], "PARTE", null));
+      }
     }
   }
+
+  // 2) Referencias cruzadas
+  if (startsWith.length < max && idx.porReferencia) {
+    const refKeys = Object.keys(idx.porReferencia);
+    for (let i = 0; i < refKeys.length; i++) {
+      const refCode = refKeys[i];
+      const reg = idx.porReferencia[refCode];
+      const clave = reg[0] + "|" + reg[1];
+      if (yaIncluidos[clave]) continue;
+
+      if (refCode.startsWith(p)) {
+        yaIncluidos[clave] = true;
+        startsWith.push(pack(reg, "REFERENCIA", refCode));
+        if (startsWith.length >= max) break;
+      } else if (contains.length < max && refCode.indexOf(p) > -1) {
+        yaIncluidos[clave] = true;
+        contains.push(pack(reg, "REFERENCIA", refCode));
+      }
+    }
+  }
+
   return startsWith.concat(contains).slice(0, max);
 }
 
@@ -243,8 +437,26 @@ function obtenerEstadoIndice() {
   const idx = obtenerIndiceSap_(false);
   return {
     total: idx.total || 0,
+    totalRefs: idx.totalRefs || 0,
+    totalGrupos: idx.totalGrupos || 0,
+    huerfanos: (idx.huerfanos || []).length,
     ts: idx.ts || 0,
     antiguedadSegundos: idx.ts ? Math.round((Date.now() - idx.ts) / 1000) : null
   };
+}
+
+/**
+ * Endpoint AGENTE: lista los grupos de referencias cruzadas que NO tienen
+ * ningún código en DATA_SAP. Útil para limpiar datos y/o agregarlos a SAP.
+ */
+function obtenerReferenciasHuerfanas(token) {
+  return conSesion_(token, ROLES.AGENTE, function() {
+    const idx = obtenerIndiceSap_(false);
+    return {
+      exito: true,
+      total: (idx.huerfanos || []).length,
+      huerfanos: idx.huerfanos || []
+    };
+  });
 }
 

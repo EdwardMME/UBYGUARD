@@ -12,8 +12,8 @@ function onEdit(e) {
   const hoja = e.source.getActiveSheet();
   const nombreHoja = hoja.getName();
 
-  // 1) Edición en DATA_SAP → índice desactualizado
-  if (nombreHoja === HOJAS.DATA_SAP) {
+  // 1) Edición en DATA_SAP o REFERENCIAS_CRUZADAS → índice desactualizado
+  if (nombreHoja === HOJAS.DATA_SAP || nombreHoja === HOJAS.REFERENCIAS_CRUZADAS) {
     try { invalidarIndiceSap(); } catch (err) {}
     return;
   }

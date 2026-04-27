@@ -604,11 +604,17 @@
 
       <!-- Barra de estado del índice SAP -->
       <div class="mt-4 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-2 flex-wrap">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
           <span class="dot dot-ok"></span>
           <span>Índice SAP</span>
           <span class="font-mono font-semibold text-slate-700 dark:text-slate-200" x-text="formatoNumero(totalSap)"></span>
           <span>partes</span>
+          <span x-show="totalRefs > 0" class="text-amber-600 dark:text-amber-400">
+            · <span class="font-mono font-semibold" x-text="formatoNumero(totalRefs)"></span> refs cruzadas
+          </span>
+          <span x-show="huerfanosRefs > 0 && puedeVer('AGENTE')" class="cursor-pointer text-red-600 dark:text-red-400 hover:underline" @click="abrirHuerfanos()" :title="'Click para ver ' + huerfanosRefs + ' grupos de referencias sin match en DATA_SAP'">
+            · <span class="font-mono font-semibold" x-text="huerfanosRefs"></span> huérfanas ⚠
+          </span>
           <span x-show="indiceEdad !== null" class="hint">· actualizado hace <span x-text="formatoTiempoRelativo(indiceEdad)"></span></span>
         </div>
         <div class="hint" x-show="ultimaCargaMs">
@@ -801,15 +807,23 @@
                 <th>Stock</th><th>Ubicación</th><th class="hide-mobile"></th>
               </tr></thead>
               <tbody>
-                <template x-for="r in busqueda.resultados" :key="(r[0]||'') + '|' + (r[1]||'')">
+                <template x-for="r in busqueda.resultados" :key="(r.parte||'') + '|' + (r.codigo||'') + '|' + (r.referenciaUsada||'')">
                   <tr class="animate-fadeIn">
-                    <td class="mono font-semibold" x-text="r[0]"></td>
-                    <td class="mono" x-text="r[1]"></td>
-                    <td x-text="r[2]"></td>
-                    <td class="mono font-bold" :class="r[3] > 0 ? 'text-emerald-700' : 'text-slate-400 dark:text-slate-500'" x-text="r[3]"></td>
-                    <td class="mono" x-text="r[4] || '—'"></td>
+                    <td class="mono font-semibold">
+                      <span x-text="r.parte"></span>
+                      <span x-show="r.encontradoPor === 'REFERENCIA'" class="chip chip-warn ml-1" :title="'Encontrado por referencia: ' + r.referenciaUsada">REF</span>
+                    </td>
+                    <td class="mono" x-text="r.codigo"></td>
                     <td>
-                      <button @click.stop="usarEnIndividual(r[0] || r[1])" class="btn btn-primary btn-sm whitespace-nowrap" :title="'Registrar movimiento de ' + (r[0] || r[1])">
+                      <span x-text="r.descripcion"></span>
+                      <div x-show="r.encontradoPor === 'REFERENCIA'" class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                        ↳ buscaste <span class="mono font-semibold" x-text="r.referenciaUsada"></span> · es equivalente
+                      </div>
+                    </td>
+                    <td class="mono font-bold" :class="r.stock > 0 ? 'text-emerald-700' : 'text-slate-400 dark:text-slate-500'" x-text="r.stock"></td>
+                    <td class="mono" x-text="r.ubicacion || '—'"></td>
+                    <td>
+                      <button @click.stop="usarEnIndividual(r.referenciaUsada || r.parte || r.codigo)" class="btn btn-primary btn-sm whitespace-nowrap" :title="'Registrar movimiento de ' + (r.parte || r.codigo)">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                         <span class="hide-mobile">Usar</span>
                       </button>
@@ -876,12 +890,16 @@
               </div>
             </div>
             <div x-show="individual.mostrarSugerencias && individual.sugerencias.length>0" class="autocomplete-panel animate-fadeIn">
-              <template x-for="(s, i) in individual.sugerencias" :key="(s.parte||'') + '|' + (s.codigo||'') + '|' + i">
+              <template x-for="(s, i) in individual.sugerencias" :key="(s.parte||'') + '|' + (s.codigo||'') + '|' + (s.referenciaUsada||'') + '|' + i">
                 <div class="autocomplete-item" :class="{'active': individual.sugIdx===i}" @click="elegirSugerencia(i)">
                   <i data-lucide="box" class="w-4 h-4 text-slate-400 dark:text-slate-500"></i>
                   <div class="flex-1 min-w-0">
-                    <div class="mono text-sm font-semibold text-slate-800 dark:text-slate-100 truncate" x-text="s.parte"></div>
+                    <div class="mono text-sm font-semibold text-slate-800 dark:text-slate-100 truncate flex items-center gap-1">
+                      <span x-text="s.parte || s.codigo"></span>
+                      <span x-show="s.encontradoPor === 'REFERENCIA'" class="chip chip-warn text-[9px]" :title="'Buscaste ' + s.referenciaUsada">REF</span>
+                    </div>
                     <div class="text-xs text-slate-500 dark:text-slate-400 truncate" x-text="s.descripcion || s.codigo"></div>
+                    <div x-show="s.encontradoPor === 'REFERENCIA'" class="text-[10px] text-amber-600 dark:text-amber-400 truncate">via <span class="mono" x-text="s.referenciaUsada"></span></div>
                   </div>
                   <span class="chip chip-mute mono" x-text="s.stock + ' u'"></span>
                 </div>
@@ -892,7 +910,18 @@
           <!-- Info del artículo (readonly) -->
           <template x-if="individual.articulo">
             <div class="md:col-span-2 rounded-xl p-4 border border-[color:var(--border)] bg-gradient-to-br from-slate-50 to-white animate-scaleIn">
+              <div x-show="individual.articulo.encontradoPor === 'REFERENCIA'" class="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800 flex items-center gap-2 text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-600 flex-shrink-0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+                <span>
+                  Buscaste <span class="mono font-bold" x-text="individual.articulo.referenciaUsada"></span> →
+                  equivalente en sistema: <span class="mono font-bold" x-text="individual.articulo.parte || individual.articulo.codigo"></span>
+                </span>
+              </div>
               <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <div class="label">N° Parte</div>
+                  <div class="mono font-semibold text-sm" x-text="individual.articulo.parte || '—'"></div>
+                </div>
                 <div>
                   <div class="label">Código</div>
                   <div class="mono font-semibold text-sm" x-text="individual.articulo.codigo || '—'"></div>
@@ -1461,6 +1490,55 @@
       </div>
     </section>
 
+    <!-- Modal: Referencias huérfanas (grupos sin match en DATA_SAP) -->
+    <div x-show="huerfanos.abierto" @keydown.escape.window="huerfanos.abierto=false" class="fixed inset-0 z-[105] flex items-center justify-center p-4" style="background: rgba(15,23,42,.55); backdrop-filter: blur(6px);" @click.self="huerfanos.abierto=false">
+      <div class="card p-5 w-full max-w-3xl animate-scaleIn max-h-[80vh] flex flex-col">
+        <div class="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h3 class="font-bold text-lg flex items-center gap-2">
+              <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600"></i>
+              Referencias huérfanas
+            </h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Grupos en REFERENCIAS_CRUZADAS donde NINGÚN código existe en DATA_SAP</p>
+          </div>
+          <button @click="huerfanos.abierto=false" class="btn btn-ghost btn-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+        <div class="flex-1 overflow-y-auto">
+          <div x-show="huerfanos.cargando" class="text-center py-10 text-slate-500 dark:text-slate-400">Cargando…</div>
+          <div x-show="!huerfanos.cargando && huerfanos.lista.length === 0" class="text-center py-10 text-emerald-600">
+            <i data-lucide="check-circle-2" class="w-12 h-12 mx-auto mb-2"></i>
+            <p>No hay referencias huérfanas</p>
+            <p class="hint mt-1">Todas las referencias del Excel tienen al menos un código en DATA_SAP</p>
+          </div>
+          <table x-show="!huerfanos.cargando && huerfanos.lista.length > 0" class="table">
+            <thead><tr>
+              <th>Grupo</th>
+              <th>Descripción</th>
+              <th>Códigos</th>
+            </tr></thead>
+            <tbody>
+              <template x-for="h in huerfanos.lista" :key="h.grupoId">
+                <tr>
+                  <td class="mono font-bold" x-text="h.grupoId"></td>
+                  <td class="text-sm" x-text="h.descripcion || '(sin descripción)'"></td>
+                  <td class="mono text-xs">
+                    <template x-for="c in h.codigos" :key="c">
+                      <span class="inline-block bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded m-0.5" x-text="c"></span>
+                    </template>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-4 pt-3 border-t border-[color:var(--border)] text-xs text-slate-500 dark:text-slate-400">
+          <p>💡 <strong>¿Qué hacer?</strong> Para que estos grupos sean buscables, agrega al menos uno de sus códigos a DATA_SAP, o quítalos de REFERENCIAS_CRUZADAS si no aplican.</p>
+        </div>
+      </div>
+    </div>
+
     <footer class="text-center text-xs text-slate-400 dark:text-slate-500 py-4">
       UBYGUARD · Powered by Google Apps Script
     </footer>
@@ -1476,11 +1554,16 @@
       responsables: [],
       resumen: null,
       totalSap: 0,
+      totalRefs: 0,
+      huerfanosRefs: 0,
       indiceEdad: null,
       cargandoResumen: false,
       refrescandoIndice: false,
       ultimaCargaMs: null,
       LIMITES_RESULTADOS: 150,
+
+      // Modal de huérfanos (solo AGENTE)
+      huerfanos: { abierto: false, lista: [], cargando: false },
 
       // Sesión
       sesion: {
@@ -1780,8 +1863,11 @@
           console.log('[UBY] datos iniciales OK', data);
           this.responsables = (data && data.responsables) || [];
           this.resumen = (data && data.resumen) || null;
-          this.totalSap = (data && data.indiceSap && data.indiceSap.total) || 0;
-          this.indiceEdad = (data && data.indiceSap && data.indiceSap.antiguedadSegundos) || null;
+          const idxInfo = (data && data.indiceSap) || {};
+          this.totalSap = idxInfo.total || 0;
+          this.totalRefs = idxInfo.totalRefs || 0;
+          this.huerfanosRefs = idxInfo.huerfanos || 0;
+          this.indiceEdad = idxInfo.antiguedadSegundos || null;
           if (data && data.nombre) {
             this.sesion.nombre = data.nombre;
             this.sesion.rol = data.rol || this.sesion.rol;
@@ -1817,10 +1903,29 @@
             this.indiceEdad = 0;
             this.toast(res.mensaje || 'Índice actualizado', 'ok');
             if (this.busqueda.valor && this.vista === 'buscador') this.ejecutarBusqueda();
+            // Refresca también totales de refs
+            this.rpc('obtenerDatosIniciales').then(data => {
+              const idxInfo = (data && data.indiceSap) || {};
+              this.totalRefs = idxInfo.totalRefs || 0;
+              this.huerfanosRefs = idxInfo.huerfanos || 0;
+            }).catch(() => {});
           } else {
             this.toast(res && res.mensaje || 'Error', 'err');
           }
         }).catch(() => { this.refrescandoIndice = false; this.toast('Error de red', 'err'); });
+      },
+
+      abrirHuerfanos() {
+        if (!this.puedeVer('AGENTE')) return;
+        this.huerfanos.abierto = true;
+        this.huerfanos.cargando = true;
+        this.rpc('obtenerReferenciasHuerfanas').then(res => {
+          this.huerfanos.cargando = false;
+          this.huerfanos.lista = (res && res.huerfanos) || [];
+        }).catch(() => {
+          this.huerfanos.cargando = false;
+          this.toast('Error al cargar huérfanos', 'err');
+        });
       },
 
       buscarEnTodosLosCampos() {
@@ -2013,9 +2118,17 @@
       elegirSugerencia(i) {
         const s = this.individual.sugerencias[i];
         if (!s) return;
-        this.individual.parte = s.parte || s.codigo;
+        // Si fue match por referencia, dejamos la referencia en el input (para que el usuario vea lo que tipeó)
+        // pero el artículo cargado es el canónico SAP
+        this.individual.parte = s.referenciaUsada || s.parte || s.codigo;
         this.individual.articulo = {
-          parte: s.parte, codigo: s.codigo, descripcion: s.descripcion, stock: s.stock, ubicacion: s.ubicacion
+          parte: s.parte,
+          codigo: s.codigo,
+          descripcion: s.descripcion,
+          stock: s.stock,
+          ubicacion: s.ubicacion,
+          encontradoPor: s.encontradoPor,
+          referenciaUsada: s.referenciaUsada
         };
         this.individual.mostrarSugerencias = false;
       },
