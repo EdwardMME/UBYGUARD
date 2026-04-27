@@ -218,18 +218,47 @@ function buscarEnIndice_(tipo, valor, limite) {
   const col = columnaMap[tipo];
   if (col == null) return buscarGlobal_(idx, v, max);
 
-  // Atajo O(1) por parte exacta
-  if (tipo === "PARTE" && idx.porParte[v]) {
-    return [empaquetarResultado_(idx.porParte[v], v, "PARTE", null)];
+  // Atajos O(1) por match exacto
+  if (tipo === "PARTE") {
+    if (idx.porParte[v]) {
+      return [empaquetarResultado_(idx.porParte[v], v, "PARTE", null)];
+    }
+    // Items sin "parte" en SAP (parte vacía): permitir búsqueda PARTE por código.
+    // Patrón típico: FER100266 (sólo código, sin parte) → tratarlo como identificador principal.
+    if ((idx.porCodigo || {})[v]) {
+      return [empaquetarResultado_(idx.porCodigo[v], v, "CODIGO", null)];
+    }
+    if ((idx.porReferencia || {})[v]) {
+      const meta = (idx.refMeta || {})[v] || null;
+      return [empaquetarResultado_(idx.porReferencia[v], v, "REFERENCIA", meta)];
+    }
+  }
+  if (tipo === "ARTICULO") {
+    if ((idx.porCodigo || {})[v]) {
+      return [empaquetarResultado_(idx.porCodigo[v], v, "CODIGO", null)];
+    }
+    if ((idx.porReferencia || {})[v]) {
+      const meta = (idx.refMeta || {})[v] || null;
+      return [empaquetarResultado_(idx.porReferencia[v], v, "REFERENCIA", meta)];
+    }
   }
 
   const filas = idx.filas;
   const resultado = [];
-  const yaIncluidos = {}; // dedup por parte+codigo
+  const yaIncluidos = {};
 
   for (let i = 0; i < filas.length; i++) {
-    const cell = String(filas[i][col] || "").toUpperCase();
-    if (cell.indexOf(v) > -1) {
+    const cellPrimaria = String(filas[i][col] || "").toUpperCase();
+    let match = cellPrimaria.indexOf(v) > -1;
+
+    // Fallback PARTE: si el item no tiene parte (col 0 vacía), también acepta match por código.
+    // Esto resuelve items como CEMENTO (FER100266) que sólo viven en col Código.
+    if (!match && tipo === "PARTE" && !cellPrimaria) {
+      const codigo = String(filas[i][1] || "").toUpperCase();
+      match = codigo.indexOf(v) > -1;
+    }
+
+    if (match) {
       const clave = filas[i][0] + "|" + filas[i][1];
       if (yaIncluidos[clave]) continue;
       yaIncluidos[clave] = true;
@@ -238,7 +267,7 @@ function buscarEnIndice_(tipo, valor, limite) {
     }
   }
 
-  // Si buscaba por PARTE o ARTICULO, también incluir matches en referencias
+  // Para PARTE o ARTICULO también incluir matches en referencias cruzadas
   if ((tipo === "PARTE" || tipo === "ARTICULO") && idx.porReferencia) {
     const refKeys = Object.keys(idx.porReferencia);
     for (let i = 0; i < refKeys.length; i++) {
