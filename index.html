@@ -819,11 +819,16 @@
                       <div x-show="r.encontradoPor === 'REFERENCIA'" class="text-xs text-amber-600 dark:text-amber-400 mt-1">
                         ↳ buscaste <span class="mono font-semibold" x-text="r.referenciaUsada"></span> · es equivalente
                       </div>
-                      <div x-show="r.equivalentes && r.equivalentes.length > 0" class="mt-2 flex flex-wrap items-center gap-1">
-                        <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400">También como</span>
-                        <template x-for="(eq, idx) in r.equivalentes" :key="eq">
-                          <span class="mono text-[11px] bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded px-1.5 py-0.5" x-text="eq"></span>
-                        </template>
+                      <div x-show="r.equivalentes && r.equivalentes.length > 0" class="mt-2 rounded-md bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 px-2 py-1.5">
+                        <div class="flex items-center gap-1.5 mb-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-amber-700 dark:text-amber-400"><path d="M21 11V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v4"/><path d="M21 11h-9"/><path d="M21 11l-3-3"/><path d="M21 11l-3 3"/><path d="M3 13v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/><path d="M3 13h9"/><path d="M3 13l3-3"/><path d="M3 13l3 3"/></svg>
+                          <span class="text-[10px] uppercase tracking-wider font-bold text-amber-800 dark:text-amber-300">📦 Búscalo en estantería como</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1">
+                          <template x-for="eq in r.equivalentes" :key="eq">
+                            <span class="mono text-[11px] bg-white dark:bg-slate-900 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 rounded px-1.5 py-0.5 font-semibold" x-text="eq"></span>
+                          </template>
+                        </div>
                       </div>
                     </td>
                     <td class="mono font-bold align-top" :class="r.stock > 0 ? 'text-emerald-700' : 'text-slate-400 dark:text-slate-500'" x-text="r.stock"></td>
@@ -945,18 +950,20 @@
                   <div class="mono" x-text="individual.articulo.ubicacion || '—'"></div>
                 </div>
               </div>
-              <!-- Equivalentes (otros códigos del mismo grupo) -->
-              <div x-show="individual.articulo.equivalentes && individual.articulo.equivalentes.length > 0" class="mt-4 pt-3 border-t border-[color:var(--border)]">
-                <div class="flex items-center gap-2 mb-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-600"><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
-                  <span class="label mb-0">Otros códigos del mismo artículo</span>
+              <!-- Referencias físicas (otros códigos del mismo grupo) -->
+              <div x-show="individual.articulo.equivalentes && individual.articulo.equivalentes.length > 0" class="mt-4 rounded-lg border-2 border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 p-4">
+                <div class="flex items-center gap-2 mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-amber-700 dark:text-amber-400"><path d="M21 11V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v4"/><path d="M21 11h-9"/><path d="M21 11l-3-3"/><path d="M21 11l-3 3"/><path d="M3 13v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/><path d="M3 13h9"/><path d="M3 13l3-3"/><path d="M3 13l3 3"/></svg>
+                  <span class="font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide text-sm">📦 En estantería búscalo como</span>
                 </div>
-                <div class="flex flex-wrap gap-1">
+                <div class="flex flex-wrap gap-2">
                   <template x-for="eq in individual.articulo.equivalentes" :key="eq">
-                    <span class="mono text-xs bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded px-2 py-0.5" x-text="eq"></span>
+                    <span class="mono font-bold text-sm bg-white dark:bg-slate-900 text-amber-800 dark:text-amber-300 border-2 border-amber-400 dark:border-amber-600 rounded-md px-3 py-1.5 shadow-sm" x-text="eq"></span>
                   </template>
                 </div>
-                <p class="hint mt-2">Si físicamente ves cualquiera de estos códigos en el almacén, es el mismo artículo.</p>
+                <p class="text-xs mt-3 text-amber-800 dark:text-amber-300">
+                  <strong>El sistema te pidió este artículo</strong> pero físicamente puede estar etiquetado con cualquiera de estos códigos. Cualquiera que encuentres es el mismo item.
+                </p>
               </div>
             </div>
           </template>

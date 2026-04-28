@@ -341,17 +341,17 @@ function buscarGlobal_(idx, valor, max) {
 function empaquetarResultado_(reg, codigoEntrada, encontradoPor, refMeta, idx) {
   const claveParte = String(reg[0] || "").toUpperCase();
   const claveCodigo = String(reg[1] || "").toUpperCase();
+  const claveEntrada = String(codigoEntrada || "").toUpperCase();
   let grupoId = refMeta ? refMeta.grupoId : null;
   let equivalentes = [];
 
-  // Si idx está disponible, busca el grupo del item y trae equivalentes
   if (idx) {
     if (!grupoId) {
       grupoId = (idx.codigoAGrupo || {})[claveParte] || (idx.codigoAGrupo || {})[claveCodigo] || null;
     }
     if (grupoId && idx.porGrupo && idx.porGrupo[grupoId]) {
       equivalentes = idx.porGrupo[grupoId].filter(function(c) {
-        return c !== claveParte && c !== claveCodigo;
+        return c !== claveParte && c !== claveCodigo && c !== claveEntrada;
       });
     }
   }
