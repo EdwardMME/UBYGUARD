@@ -809,20 +809,26 @@
               <tbody>
                 <template x-for="r in busqueda.resultados" :key="(r.parte||'') + '|' + (r.codigo||'') + '|' + (r.referenciaUsada||'')">
                   <tr class="animate-fadeIn">
-                    <td class="mono font-semibold">
-                      <span x-text="r.parte"></span>
+                    <td class="mono font-semibold align-top">
+                      <span x-text="r.parte || '—'"></span>
                       <span x-show="r.encontradoPor === 'REFERENCIA'" class="chip chip-warn ml-1" :title="'Encontrado por referencia: ' + r.referenciaUsada">REF</span>
                     </td>
-                    <td class="mono" x-text="r.codigo"></td>
-                    <td>
-                      <span x-text="r.descripcion"></span>
+                    <td class="mono align-top" x-text="r.codigo || '—'"></td>
+                    <td class="align-top">
+                      <span x-text="r.descripcion || '(sin descripción)'"></span>
                       <div x-show="r.encontradoPor === 'REFERENCIA'" class="text-xs text-amber-600 dark:text-amber-400 mt-1">
                         ↳ buscaste <span class="mono font-semibold" x-text="r.referenciaUsada"></span> · es equivalente
                       </div>
+                      <div x-show="r.equivalentes && r.equivalentes.length > 0" class="mt-2 flex flex-wrap items-center gap-1">
+                        <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400">También como</span>
+                        <template x-for="(eq, idx) in r.equivalentes" :key="eq">
+                          <span class="mono text-[11px] bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded px-1.5 py-0.5" x-text="eq"></span>
+                        </template>
+                      </div>
                     </td>
-                    <td class="mono font-bold" :class="r.stock > 0 ? 'text-emerald-700' : 'text-slate-400 dark:text-slate-500'" x-text="r.stock"></td>
-                    <td class="mono" x-text="r.ubicacion || '—'"></td>
-                    <td>
+                    <td class="mono font-bold align-top" :class="r.stock > 0 ? 'text-emerald-700' : 'text-slate-400 dark:text-slate-500'" x-text="r.stock"></td>
+                    <td class="mono align-top" x-text="r.ubicacion || '—'"></td>
+                    <td class="align-top">
                       <button @click.stop="usarEnIndividual(r.referenciaUsada || r.parte || r.codigo)" class="btn btn-primary btn-sm whitespace-nowrap" :title="'Registrar movimiento de ' + (r.parte || r.codigo)">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                         <span class="hide-mobile">Usar</span>
@@ -938,6 +944,19 @@
                   <div class="label">Ubicación origen</div>
                   <div class="mono" x-text="individual.articulo.ubicacion || '—'"></div>
                 </div>
+              </div>
+              <!-- Equivalentes (otros códigos del mismo grupo) -->
+              <div x-show="individual.articulo.equivalentes && individual.articulo.equivalentes.length > 0" class="mt-4 pt-3 border-t border-[color:var(--border)]">
+                <div class="flex items-center gap-2 mb-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-600"><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+                  <span class="label mb-0">Otros códigos del mismo artículo</span>
+                </div>
+                <div class="flex flex-wrap gap-1">
+                  <template x-for="eq in individual.articulo.equivalentes" :key="eq">
+                    <span class="mono text-xs bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded px-2 py-0.5" x-text="eq"></span>
+                  </template>
+                </div>
+                <p class="hint mt-2">Si físicamente ves cualquiera de estos códigos en el almacén, es el mismo artículo.</p>
               </div>
             </div>
           </template>
@@ -2118,19 +2137,10 @@
       elegirSugerencia(i) {
         const s = this.individual.sugerencias[i];
         if (!s) return;
-        // Si fue match por referencia, dejamos la referencia en el input (para que el usuario vea lo que tipeó)
-        // pero el artículo cargado es el canónico SAP
         this.individual.parte = s.referenciaUsada || s.parte || s.codigo;
-        this.individual.articulo = {
-          parte: s.parte,
-          codigo: s.codigo,
-          descripcion: s.descripcion,
-          stock: s.stock,
-          ubicacion: s.ubicacion,
-          encontradoPor: s.encontradoPor,
-          referenciaUsada: s.referenciaUsada
-        };
         this.individual.mostrarSugerencias = false;
+        // cargarArticulo() trae el artículo completo con equivalentes via buscarArticulo
+        this.cargarArticulo();
       },
       cargarArticulo() {
         const p = (this.individual.parte || '').trim();

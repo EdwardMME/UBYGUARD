@@ -66,13 +66,17 @@ function construirIndiceSapDesdeSheet_() {
   }
 
   // ── Capa de referencias cruzadas ──────────────────────────────────
-  // Carga la hoja REFERENCIAS_CRUZADAS y conecta los grupos al índice SAP.
-  // Para cada grupo: si algún código del grupo está en DATA_SAP, todas las
-  // demás referencias del grupo apuntan a ese mismo registro.
-  // Si el grupo no tiene match en DATA_SAP → huérfano (se reporta).
+  // Construye:
+  //   porReferencia[codigo]  → registro (mismo del SAP) para refs sin match propio
+  //   refMeta[codigo]        → metadata sobre cómo se conecta al canónico
+  //   codigoAGrupo[codigo]   → grupoId para CUALQUIER código (parte/codigo/ref)
+  //   porGrupo[grupoId]      → lista completa de códigos del grupo (para equivalentes)
+  //   huerfanos              → grupos sin match en DATA_SAP
   const refsLoaded = cargarReferenciasCruzadas_();
   const porReferencia = {};
-  const refMeta = {}; // código_ref → { grupoId, codigosDelGrupo[], descripcionGrupo }
+  const refMeta = {};
+  const codigoAGrupo = {};
+  const porGrupo = {};
   const huerfanos = [];
 
   Object.keys(refsLoaded.porGrupo).forEach(function(grupoId) {
@@ -80,7 +84,6 @@ function construirIndiceSapDesdeSheet_() {
     let registroRepresentante = null;
     let codigoRepresentante = "";
 
-    // Busca el primer código del grupo que exista en DATA_SAP
     for (let j = 0; j < codigosGrupo.length; j++) {
       const c = codigosGrupo[j];
       if (porParte[c]) {
@@ -96,9 +99,11 @@ function construirIndiceSapDesdeSheet_() {
     }
 
     if (registroRepresentante) {
-      // Mapear todos los demás códigos del grupo como referencias
+      // Guarda lista completa del grupo y mapea cada código a su grupoId
+      porGrupo[grupoId] = codigosGrupo.slice();
       for (let j = 0; j < codigosGrupo.length; j++) {
         const c = codigosGrupo[j];
+        codigoAGrupo[c] = grupoId;
         if (!porParte[c] && !porCodigo[c]) {
           porReferencia[c] = registroRepresentante;
           refMeta[c] = {
@@ -109,7 +114,6 @@ function construirIndiceSapDesdeSheet_() {
         }
       }
     } else {
-      // Ningún código del grupo está en DATA_SAP
       huerfanos.push({
         grupoId: grupoId,
         codigos: codigosGrupo,
@@ -124,6 +128,8 @@ function construirIndiceSapDesdeSheet_() {
     porCodigo: porCodigo,
     porReferencia: porReferencia,
     refMeta: refMeta,
+    codigoAGrupo: codigoAGrupo,
+    porGrupo: porGrupo,
     huerfanos: huerfanos,
     totalRefs: Object.keys(porReferencia).length,
     totalGrupos: Object.keys(refsLoaded.porGrupo).length,
@@ -221,25 +227,25 @@ function buscarEnIndice_(tipo, valor, limite) {
   // Atajos O(1) por match exacto
   if (tipo === "PARTE") {
     if (idx.porParte[v]) {
-      return [empaquetarResultado_(idx.porParte[v], v, "PARTE", null)];
+      return [empaquetarResultado_(idx.porParte[v], v, "PARTE", null, idx)];
     }
     // Items sin "parte" en SAP (parte vacía): permitir búsqueda PARTE por código.
     // Patrón típico: FER100266 (sólo código, sin parte) → tratarlo como identificador principal.
     if ((idx.porCodigo || {})[v]) {
-      return [empaquetarResultado_(idx.porCodigo[v], v, "CODIGO", null)];
+      return [empaquetarResultado_(idx.porCodigo[v], v, "CODIGO", null, idx)];
     }
     if ((idx.porReferencia || {})[v]) {
       const meta = (idx.refMeta || {})[v] || null;
-      return [empaquetarResultado_(idx.porReferencia[v], v, "REFERENCIA", meta)];
+      return [empaquetarResultado_(idx.porReferencia[v], v, "REFERENCIA", meta, idx)];
     }
   }
   if (tipo === "ARTICULO") {
     if ((idx.porCodigo || {})[v]) {
-      return [empaquetarResultado_(idx.porCodigo[v], v, "CODIGO", null)];
+      return [empaquetarResultado_(idx.porCodigo[v], v, "CODIGO", null, idx)];
     }
     if ((idx.porReferencia || {})[v]) {
       const meta = (idx.refMeta || {})[v] || null;
-      return [empaquetarResultado_(idx.porReferencia[v], v, "REFERENCIA", meta)];
+      return [empaquetarResultado_(idx.porReferencia[v], v, "REFERENCIA", meta, idx)];
     }
   }
 
@@ -262,7 +268,7 @@ function buscarEnIndice_(tipo, valor, limite) {
       const clave = filas[i][0] + "|" + filas[i][1];
       if (yaIncluidos[clave]) continue;
       yaIncluidos[clave] = true;
-      resultado.push(empaquetarResultado_(filas[i], v, tipo, null));
+      resultado.push(empaquetarResultado_(filas[i], v, tipo, null, idx));
       if (resultado.length >= max) return resultado;
     }
   }
@@ -278,7 +284,7 @@ function buscarEnIndice_(tipo, valor, limite) {
         if (yaIncluidos[clave]) continue;
         yaIncluidos[clave] = true;
         const meta = (idx.refMeta || {})[refCode] || null;
-        resultado.push(empaquetarResultado_(reg, refCode, "REFERENCIA", meta));
+        resultado.push(empaquetarResultado_(reg, refCode, "REFERENCIA", meta, idx));
         if (resultado.length >= max) return resultado;
       }
     }
@@ -304,7 +310,7 @@ function buscarGlobal_(idx, valor, max) {
       const clave = filas[i][0] + "|" + filas[i][1];
       if (yaIncluidos[clave]) continue;
       yaIncluidos[clave] = true;
-      resultado.push(empaquetarResultado_(filas[i], valor, "TODOS", null));
+      resultado.push(empaquetarResultado_(filas[i], valor, "TODOS", null, idx));
       if (resultado.length >= max) return resultado;
     }
   }
@@ -320,7 +326,7 @@ function buscarGlobal_(idx, valor, max) {
         if (yaIncluidos[clave]) continue;
         yaIncluidos[clave] = true;
         const meta = (idx.refMeta || {})[refCode] || null;
-        resultado.push(empaquetarResultado_(reg, refCode, "REFERENCIA", meta));
+        resultado.push(empaquetarResultado_(reg, refCode, "REFERENCIA", meta, idx));
         if (resultado.length >= max) return resultado;
       }
     }
@@ -330,9 +336,26 @@ function buscarGlobal_(idx, valor, max) {
 
 /**
  * Convierte un registro [parte, codigo, desc, stock, ubic] a un objeto
- * estructurado que el frontend puede mostrar con badges informativos.
+ * estructurado con badges + lista de equivalentes (otros códigos del mismo grupo).
  */
-function empaquetarResultado_(reg, codigoEntrada, encontradoPor, refMeta) {
+function empaquetarResultado_(reg, codigoEntrada, encontradoPor, refMeta, idx) {
+  const claveParte = String(reg[0] || "").toUpperCase();
+  const claveCodigo = String(reg[1] || "").toUpperCase();
+  let grupoId = refMeta ? refMeta.grupoId : null;
+  let equivalentes = [];
+
+  // Si idx está disponible, busca el grupo del item y trae equivalentes
+  if (idx) {
+    if (!grupoId) {
+      grupoId = (idx.codigoAGrupo || {})[claveParte] || (idx.codigoAGrupo || {})[claveCodigo] || null;
+    }
+    if (grupoId && idx.porGrupo && idx.porGrupo[grupoId]) {
+      equivalentes = idx.porGrupo[grupoId].filter(function(c) {
+        return c !== claveParte && c !== claveCodigo;
+      });
+    }
+  }
+
   return {
     parte: reg[0],
     codigo: reg[1],
@@ -342,7 +365,8 @@ function empaquetarResultado_(reg, codigoEntrada, encontradoPor, refMeta) {
     codigoEntrada: codigoEntrada,
     encontradoPor: encontradoPor,
     referenciaUsada: encontradoPor === "REFERENCIA" ? codigoEntrada : null,
-    grupoId: refMeta ? refMeta.grupoId : null
+    grupoId: grupoId,
+    equivalentes: equivalentes
   };
 }
 
@@ -364,34 +388,17 @@ function obtenerArticuloPorIdentificador_(id) {
   const clave = (id || "").toString().trim().toUpperCase();
   if (!clave) return null;
 
-  // 1) Match directo por parte
   if (idx.porParte[clave]) {
-    return mapearArticuloDesdeRegistro_(idx.porParte[clave], clave, "PARTE", null);
+    return empaquetarResultado_(idx.porParte[clave], clave, "PARTE", null, idx);
   }
-  // 2) Match directo por código
   if ((idx.porCodigo || {})[clave]) {
-    return mapearArticuloDesdeRegistro_(idx.porCodigo[clave], clave, "CODIGO", null);
+    return empaquetarResultado_(idx.porCodigo[clave], clave, "CODIGO", null, idx);
   }
-  // 3) Match vía referencia cruzada
   if ((idx.porReferencia || {})[clave]) {
     const meta = (idx.refMeta || {})[clave] || null;
-    return mapearArticuloDesdeRegistro_(idx.porReferencia[clave], clave, "REFERENCIA", meta);
+    return empaquetarResultado_(idx.porReferencia[clave], clave, "REFERENCIA", meta, idx);
   }
   return null;
-}
-
-function mapearArticuloDesdeRegistro_(reg, codigoEntrada, encontradoPor, refMeta) {
-  return {
-    parte: reg[0],
-    codigo: reg[1],
-    descripcion: reg[2],
-    stock: reg[3],
-    ubicacion: reg[4],
-    codigoEntrada: codigoEntrada,
-    encontradoPor: encontradoPor,
-    grupoId: refMeta ? refMeta.grupoId : null,
-    referenciaUsada: encontradoPor === "REFERENCIA" ? codigoEntrada : null
-  };
 }
 
 /**
