@@ -822,7 +822,8 @@
                       <div x-show="r.equivalentes && r.equivalentes.length > 0" class="mt-2 rounded-md bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 px-2 py-1.5">
                         <div class="flex items-center gap-1.5 mb-1">
                           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-amber-700 dark:text-amber-400"><path d="M21 11V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v4"/><path d="M21 11h-9"/><path d="M21 11l-3-3"/><path d="M21 11l-3 3"/><path d="M3 13v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/><path d="M3 13h9"/><path d="M3 13l3-3"/><path d="M3 13l3 3"/></svg>
-                          <span class="text-[10px] uppercase tracking-wider font-bold text-amber-800 dark:text-amber-300">📦 Búscalo en estantería como</span>
+                          <span class="text-[10px] uppercase tracking-wider font-bold text-amber-800 dark:text-amber-300"
+                                x-text="r.encontradoPor === 'REFERENCIA' ? '📦 Búscalo en estantería como' : '🔄 Este código también tiene referencias'"></span>
                         </div>
                         <div class="flex flex-wrap gap-1">
                           <template x-for="eq in r.equivalentes" :key="eq">
@@ -950,19 +951,23 @@
                   <div class="mono" x-text="individual.articulo.ubicacion || '—'"></div>
                 </div>
               </div>
-              <!-- Referencias físicas (otros códigos del mismo grupo) -->
+              <!-- Referencias / equivalentes (otros códigos del mismo grupo) -->
               <div x-show="individual.articulo.equivalentes && individual.articulo.equivalentes.length > 0" class="mt-4 rounded-lg border-2 border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 p-4">
                 <div class="flex items-center gap-2 mb-3">
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-amber-700 dark:text-amber-400"><path d="M21 11V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v4"/><path d="M21 11h-9"/><path d="M21 11l-3-3"/><path d="M21 11l-3 3"/><path d="M3 13v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/><path d="M3 13h9"/><path d="M3 13l3-3"/><path d="M3 13l3 3"/></svg>
-                  <span class="font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide text-sm">📦 En estantería búscalo como</span>
+                  <span class="font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide text-sm"
+                        x-text="individual.articulo.encontradoPor === 'REFERENCIA' ? '📦 EN ESTANTERÍA BÚSCALO COMO' : '🔄 ESTE CÓDIGO TAMBIÉN TIENE REFERENCIAS'"></span>
                 </div>
                 <div class="flex flex-wrap gap-2">
                   <template x-for="eq in individual.articulo.equivalentes" :key="eq">
                     <span class="mono font-bold text-sm bg-white dark:bg-slate-900 text-amber-800 dark:text-amber-300 border-2 border-amber-400 dark:border-amber-600 rounded-md px-3 py-1.5 shadow-sm" x-text="eq"></span>
                   </template>
                 </div>
-                <p class="text-xs mt-3 text-amber-800 dark:text-amber-300">
-                  <strong>El sistema te pidió este artículo</strong> pero físicamente puede estar etiquetado con cualquiera de estos códigos. Cualquiera que encuentres es el mismo item.
+                <p x-show="individual.articulo.encontradoPor === 'REFERENCIA'" class="text-xs mt-3 text-amber-800 dark:text-amber-300">
+                  <strong>El sistema te pidió este artículo</strong> pero físicamente puede estar etiquetado con cualquiera de estos códigos.
+                </p>
+                <p x-show="individual.articulo.encontradoPor !== 'REFERENCIA'" class="text-xs mt-3 text-amber-800 dark:text-amber-300">
+                  <strong>Te piden este código</strong>, pero en estantería puede aparecer físicamente como cualquiera de estas referencias. Si lo encuentras con otra etiqueta, es el mismo item.
                 </p>
               </div>
             </div>
