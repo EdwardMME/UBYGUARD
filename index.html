@@ -807,7 +807,7 @@
                 <th>Stock</th><th>Ubicación</th><th class="hide-mobile"></th>
               </tr></thead>
               <tbody>
-                <template x-for="r in busqueda.resultados" :key="(r.parte||'') + '|' + (r.codigo||'') + '|' + (r.referenciaUsada||'')">
+                <template x-for="(r, i) in busqueda.resultados" :key="i + '|' + (r.parte||'') + '|' + (r.codigo||'') + '|' + (r.referenciaUsada||'')">
                   <tr class="animate-fadeIn">
                     <td class="mono font-semibold align-top">
                       <span x-text="r.parte || '—'"></span>
@@ -1631,6 +1631,7 @@
       ],
 
       busqueda: { tipo: 'PARTE', valor: '', resultados: [], cargando: false, tiempoMs: null },
+      _busquedaSeq: 0,
 
       individual: {
         parte: '', articulo: null,
@@ -1966,19 +1967,25 @@
       buscarEnTodosLosCampos() {
         const v = (this.busqueda.valor || '').trim();
         if (!v) return;
+        const seq = ++this._busquedaSeq;
         this.busqueda.cargando = true;
         const t0 = Date.now();
         this.rpc('buscarEnTodos', v).then(res => {
+          if (seq !== this._busquedaSeq) return;
           this.busqueda.cargando = false;
           this.busqueda.tiempoMs = Date.now() - t0;
-          const registros = (res && res.resultados) || [];
-          this.busqueda.resultados = registros.map(r => r.registro);
-          if (registros.length > 0) {
-            this.toast('Encontrado en: ' + [...new Set(registros.flatMap(r=>r.campos))].join(', '), 'ok');
+          const arr = (res && Array.isArray(res.resultados)) ? res.resultados : [];
+          // buscarEnTodos ahora devuelve los mismos objetos que buscarInventario (post-refactor)
+          this.busqueda.resultados = arr.filter(r => r && typeof r === 'object' && (r.parte || r.codigo || r.descripcion));
+          if (this.busqueda.resultados.length > 0) {
+            this.toast('Resultados en otros campos', 'ok');
           } else {
             this.toast('No existe en ningún campo', 'warn');
           }
-        }).catch(() => { this.busqueda.cargando = false; this.toast('Error', 'err'); });
+        }).catch(() => {
+          if (seq !== this._busquedaSeq) return;
+          this.busqueda.cargando = false; this.toast('Error', 'err');
+        });
       },
 
       // ======================= TEMA =======================
@@ -2125,13 +2132,22 @@
       ejecutarBusqueda() {
         const v = (this.busqueda.valor || '').trim();
         if (!v) { this.busqueda.resultados = []; this.busqueda.tiempoMs = null; return; }
+        // Sequence ID: descartamos respuestas stale si el usuario inició otra búsqueda
+        const seq = ++this._busquedaSeq;
         this.busqueda.cargando = true;
         const t0 = Date.now();
         this.rpc('buscarInventario', this.busqueda.tipo, v).then(res => {
-          this.busqueda.resultados = (res && res.resultados) || [];
+          if (seq !== this._busquedaSeq) return; // respuesta vieja, ignorar
+          // Filtra entradas malformadas (defensa contra deserialización corrupta)
+          const arr = (res && Array.isArray(res.resultados)) ? res.resultados : [];
+          this.busqueda.resultados = arr.filter(r => r && typeof r === 'object' && (r.parte || r.codigo || r.descripcion));
           this.busqueda.cargando = false;
           this.busqueda.tiempoMs = Date.now() - t0;
-        }).catch(() => { this.busqueda.cargando = false; this.toast('Error al buscar', 'err'); });
+        }).catch(() => {
+          if (seq !== this._busquedaSeq) return;
+          this.busqueda.cargando = false;
+          this.toast('Error al buscar', 'err');
+        });
       },
       limpiarBusqueda() { this.busqueda.valor=''; this.busqueda.resultados=[]; this.busqueda.tiempoMs=null; },
       usarEnIndividual(identificador) {
