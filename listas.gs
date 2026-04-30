@@ -3,7 +3,7 @@
  */
 
 function obtenerResponsables(token) {
-  return conSesion_(token, ROLES.AUXILIAR, function() {
+  return conSesion_(token, ROLES.COMERCIAL, function() {
     const cached = cacheObtenerSimple_(CACHE_KEYS.RESPONSABLES);
     if (cached && Array.isArray(cached)) return { exito: true, responsables: cached };
 
@@ -25,7 +25,7 @@ function invalidarResponsables() {
  * Devuelve responsables + dashboard + info de la sesión + índice SAP.
  */
 function obtenerDatosIniciales(token) {
-  return conSesion_(token, ROLES.AUXILIAR, function(sesion) {
+  return conSesion_(token, ROLES.COMERCIAL, function(sesion) {
     const sheet = asegurarHojaUsuarios_();
     const fila = buscarFilaUsuario_(sheet, sesion.usuario);
     const nombreUsuario = fila ? (fila.data[USUARIOS_COLS.NOMBRE - 1] || sesion.usuario) : sesion.usuario;
@@ -40,13 +40,17 @@ function obtenerDatosIniciales(token) {
       cachePonerSimple_(CACHE_KEYS.RESPONSABLES, responsables, CACHE_TTL.RESPONSABLES);
     }
 
-    // Resumen inline (sin volver a pasar por conSesion_)
-    let resumen = cacheObtenerSimple_(CACHE_KEYS.RESUMEN_INICIO);
-    if (!resumen) {
-      const r = obtenerResumenInicio(token);
-      resumen = r;
-      delete resumen._token;
-      delete resumen.exito;
+    // El resumen del dashboard es un módulo administrativo:
+    // los COMERCIALES no lo necesitan (sólo ven el buscador).
+    let resumen = null;
+    if (sesion.rol !== ROLES.COMERCIAL) {
+      resumen = cacheObtenerSimple_(CACHE_KEYS.RESUMEN_INICIO);
+      if (!resumen) {
+        const r = obtenerResumenInicio(token);
+        resumen = r;
+        delete resumen._token;
+        delete resumen.exito;
+      }
     }
 
     return {

@@ -3,7 +3,7 @@
  */
 
 function buscarInventario(token, tipo, valor) {
-  return conSesion_(token, ROLES.AUXILIAR, function() {
+  return conSesion_(token, ROLES.COMERCIAL, function() {
     const tipoNormal = normalizarMayus(tipo);
     const valorNormal = normalizarTexto(valor);
     if (!valorNormal) return { exito: true, resultados: [] };
@@ -13,7 +13,7 @@ function buscarInventario(token, tipo, valor) {
 }
 
 function sugerirPartes(token, prefijo) {
-  return conSesion_(token, ROLES.AUXILIAR, function() {
+  return conSesion_(token, ROLES.COMERCIAL, function() {
     return { exito: true, sugerencias: autocompletarParte(prefijo) };
   });
 }

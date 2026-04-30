@@ -1432,7 +1432,7 @@
                   <td class="mono font-semibold" x-text="u.usuario"></td>
                   <td x-text="u.nombre"></td>
                   <td>
-                    <span class="chip" :class="u.rol==='AGENTE' ? 'chip-err' : 'chip-info'" x-text="u.rol"></span>
+                    <span class="chip" :class="u.rol==='AGENTE' ? 'chip-err' : (u.rol==='COMERCIAL' ? 'chip-mute' : 'chip-info')" x-text="u.rol"></span>
                   </td>
                   <td>
                     <span class="chip" :class="u.activo ? 'chip-ok' : 'chip-mute'" x-text="u.activo ? 'Sí' : 'No'"></span>
@@ -1488,6 +1488,7 @@
             <div>
               <label class="label">Rol</label>
               <select x-model="usuariosVista.form.rol" class="input">
+                <option value="COMERCIAL">COMERCIAL (sólo buscador, sin movimientos)</option>
                 <option value="AUXILIAR">AUXILIAR (sin Ejecución SAP)</option>
                 <option value="AGENTE">AGENTE (control total)</option>
               </select>
@@ -1621,7 +1622,7 @@
 
       navTodos: [
         { id: 'menu',       label: 'Menú',             icono: 'layout-dashboard', rol: 'AUXILIAR' },
-        { id: 'buscador',   label: 'Buscador',         icono: 'search',           rol: 'AUXILIAR' },
+        { id: 'buscador',   label: 'Buscador',         icono: 'search',           rol: 'COMERCIAL' },
         { id: 'individual', label: 'Ingreso Individual', icono: 'package-plus',   rol: 'AUXILIAR' },
         { id: 'masivo',     label: 'Ingreso Masivo',   icono: 'layers',           rol: 'AUXILIAR' },
         { id: 'ejecucion',  label: 'Ejecución SAP',    icono: 'check-square',     rol: 'AGENTE' },
@@ -1691,13 +1692,13 @@
       // ======================= NAVEGACIÓN =======================
       get nav() {
         const rolUsuario = this.sesion.rol || 'AUXILIAR';
-        const niveles = { AUXILIAR: 1, AGENTE: 2 };
-        return this.navTodos.filter(n => (niveles[rolUsuario] || 0) >= (niveles[n.rol] || 99));
+        const niveles = { COMERCIAL: 0, AUXILIAR: 1, AGENTE: 2 };
+        return this.navTodos.filter(n => (niveles[rolUsuario] != null ? niveles[rolUsuario] : -1) >= (niveles[n.rol] != null ? niveles[n.rol] : 99));
       },
 
       puedeVer(rolMin) {
-        const niveles = { AUXILIAR: 1, AGENTE: 2 };
-        return (niveles[this.sesion.rol] || 0) >= (niveles[rolMin] || 99);
+        const niveles = { COMERCIAL: 0, AUXILIAR: 1, AGENTE: 2 };
+        return (niveles[this.sesion.rol] != null ? niveles[this.sesion.rol] : -1) >= (niveles[rolMin] != null ? niveles[rolMin] : 99);
       },
 
       // ======================= SESIÓN =======================
@@ -1718,6 +1719,7 @@
               this.sesion.rol = res.rol;
               try { localStorage.setItem('uby_token', this.sesion.token); } catch (e) {}
               this.sesion.listo = true;
+              if (res.rol === 'COMERCIAL') this.vista = 'buscador';
               this.cargarInicial();
             } else {
               this.limpiarSesionCliente();
@@ -1780,6 +1782,8 @@
               } catch (e) {}
               this.login.pin = '';
               this.login.error = '';
+              // COMERCIAL no ve menú/dashboard → cae directo al buscador
+              if (res.rol === 'COMERCIAL') this.vista = 'buscador';
               this.toast('Bienvenido, ' + res.nombre, 'ok');
               this.cargarInicial();
             } else {

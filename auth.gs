@@ -126,7 +126,7 @@ function loginUsuario(usuario, pin) {
  * Cambia mi propio PIN. Requiere PIN actual.
  */
 function cambiarMiPin(token, pinActual, pinNuevo) {
-  return conSesion_(token, ROLES.AUXILIAR, function(sesion) {
+  return conSesion_(token, ROLES.COMERCIAL, function(sesion) {
     const pa = validarFormatoPin_(pinActual);
     if (!pa.ok) return { exito: false, mensaje: "PIN actual: " + pa.mensaje };
     const pn = validarFormatoPin_(pinNuevo);

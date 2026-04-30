@@ -4,7 +4,7 @@
  */
 
 function buscarArticulo(token, identificador) {
-  return conSesion_(token, ROLES.AUXILIAR, function() {
+  return conSesion_(token, ROLES.COMERCIAL, function() {
     const art = obtenerArticuloPorIdentificador_(identificador);
     return { exito: true, articulo: art };
   });

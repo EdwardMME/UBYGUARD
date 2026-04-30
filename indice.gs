@@ -186,14 +186,14 @@ function precalentarIndiceSap() {
  * Endpoint público (requiere sesión) para reconstruir el índice.
  */
 function refrescarIndiceSap(token) {
-  return conSesion_(token, ROLES.AUXILIAR, function() {
+  return conSesion_(token, ROLES.COMERCIAL, function() {
     const idx = precalentarIndiceSap();
     return { exito: true, total: idx.total || 0, mensaje: "Índice actualizado: " + (idx.total || 0) + " partes" };
   });
 }
 
 function buscarEnTodos(token, valor) {
-  return conSesion_(token, ROLES.AUXILIAR, function() {
+  return conSesion_(token, ROLES.COMERCIAL, function() {
     const v = (valor || "").toString().toUpperCase().trim();
     if (!v) return { exito: true, total: 0, resultados: [] };
     const idx = obtenerIndiceSap_(false);

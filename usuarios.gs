@@ -114,8 +114,8 @@ function crearUsuario(token, datos) {
     if (!p.ok) return { exito: false, mensaje: p.mensaje };
 
     const rol = normalizarTexto(datos.rol).toUpperCase();
-    if (rol !== ROLES.AGENTE && rol !== ROLES.AUXILIAR) {
-      return { exito: false, mensaje: "Rol inválido. Usa AGENTE o AUXILIAR." };
+    if (rol !== ROLES.AGENTE && rol !== ROLES.AUXILIAR && rol !== ROLES.COMERCIAL) {
+      return { exito: false, mensaje: "Rol inválido. Usa AGENTE, AUXILIAR o COMERCIAL." };
     }
 
     const lock = LockService.getScriptLock();
@@ -149,7 +149,7 @@ function actualizarUsuario(token, usuarioTarget, cambios) {
     }
     if (cambios.rol !== undefined) {
       const r = normalizarTexto(cambios.rol).toUpperCase();
-      if (r !== ROLES.AGENTE && r !== ROLES.AUXILIAR) {
+      if (r !== ROLES.AGENTE && r !== ROLES.AUXILIAR && r !== ROLES.COMERCIAL) {
         return { exito: false, mensaje: "Rol inválido" };
       }
       // Prevenir auto-degradación del último AGENTE
