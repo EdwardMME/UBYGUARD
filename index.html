@@ -984,7 +984,12 @@
 
           <div>
             <label class="label">Ubicación destino</label>
-            <input x-model="individual.destino" placeholder="Ej. A-01-02" class="input mono uppercase">
+            <div class="flex gap-2">
+              <input x-model="individual.destino" placeholder="Ej. A-01-02" class="input flex-1 mono uppercase">
+              <button @click="abrirScanner('individual_destino', 'single')" class="btn btn-soft" title="Escanear etiqueta de ubicación">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
+              </button>
+            </div>
           </div>
           <div>
             <label class="label">Cantidad</label>
@@ -1059,7 +1064,12 @@
           </div>
           <div>
             <label class="label">Destino <span class="text-red-500">*</span></label>
-            <input x-model="carrito.destino" placeholder="Ej. PRUEBA-3" class="input mono uppercase">
+            <div class="flex gap-1">
+              <input x-model="carrito.destino" placeholder="Ej. PRUEBA-3" class="input flex-1 mono uppercase">
+              <button @click="abrirScanner('carrito_destino', 'single')" class="btn btn-soft !px-2" title="Escanear etiqueta de ubicación">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
+              </button>
+            </div>
           </div>
           <div>
             <label class="label">Responsable <span class="text-red-500">*</span></label>
@@ -2687,16 +2697,23 @@
           aspectRatio: 1.333,
           disableFlip: false
         };
-        // html5-qrcode acepta facingMode como string puro o {exact: ...}, NO {ideal: ...}
-        // Intenta cámara trasera primero; si falla (ej. tablet sin cámara trasera), cae a cualquiera disponible
+        // html5-qrcode admite: string (cameraId), {facingMode: "environment"|"user"},
+        // o {deviceId: {exact: ...}}. NO admite booleans.
         const arrancarCon = (constraint) => inst.start(
           constraint,
           config,
           (decoded) => this._onCodigoDetectado(decoded),
           () => {}
         );
+        // 1) intenta cámara trasera por facingMode
         arrancarCon({ facingMode: "environment" })
-          .catch(() => arrancarCon(true))  // fallback: cualquier cámara
+          .catch(() =>
+            // 2) fallback: lista cámaras disponibles y usa la primera
+            Html5Qrcode.getCameras().then(cams => {
+              if (!cams || cams.length === 0) throw new Error("No hay cámaras disponibles");
+              return arrancarCon(cams[cams.length - 1].id); // típicamente la trasera es la última
+            })
+          )
           .catch(err => {
             this.scanner.error = 'No se pudo abrir la cámara: ' + (err && err.message ? err.message : err);
           });
@@ -2720,6 +2737,14 @@
           this.individual.parte = code;
           this.cerrarScanner();
           this.cargarArticulo();
+        } else if (this.scanner.target === 'individual_destino') {
+          this.individual.destino = code.toUpperCase();
+          this.cerrarScanner();
+          this.toast('Destino: ' + code.toUpperCase(), 'ok');
+        } else if (this.scanner.target === 'carrito_destino') {
+          this.carrito.destino = code.toUpperCase();
+          this.cerrarScanner();
+          this.toast('Destino: ' + code.toUpperCase(), 'ok');
         } else if (this.scanner.target === 'carrito') {
           // Modo continuo — no cierra cámara, agrega al carrito
           this._carritoAgregarPorCodigo(code);
