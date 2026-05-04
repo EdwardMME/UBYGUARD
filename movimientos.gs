@@ -68,3 +68,104 @@ function registrarMovimiento(token, datos) {
     };
   });
 }
+
+/**
+ * Registra varios movimientos en una sola operación atómica.
+ * Diseñado para el carrito de movimientos (escaneo masivo).
+ *
+ * Validaciones GLOBALES (una vez): destino, responsable, tipo, documento.
+ * Validaciones POR ITEM: existencia en DATA_SAP, cantidad > 0.
+ *
+ * Ventajas vs N llamadas a registrarMovimiento:
+ *   - 1 sola adquisición de LockService (evita race conditions)
+ *   - 1 sola escritura getRange().setValues() en bloque (vs N appendRow)
+ *   - Si una validación crítica falla, no se escribe nada (atomicidad)
+ */
+function registrarMovimientosBatch(token, payload) {
+  return conSesion_(token, ROLES.AUXILIAR, function(sesion) {
+    if (!payload || !Array.isArray(payload.items) || payload.items.length === 0) {
+      return { exito: false, mensaje: "Sin items para registrar" };
+    }
+    if (payload.items.length > 100) {
+      return { exito: false, mensaje: "Máximo 100 items por lote" };
+    }
+
+    // Validaciones globales
+    const destino = validarTexto_(payload.destino, REGEX.UBICACION, "ubicación destino");
+    if (!destino.ok) return { exito: false, mensaje: destino.mensaje };
+
+    const responsable = validarTexto_(payload.responsable, null, "responsable");
+    if (!responsable.ok) return { exito: false, mensaje: responsable.mensaje };
+
+    const documento = normalizarTexto(payload.documento || "");
+    const tipo = normalizarMayus(payload.tipo) || TIPO_MOVIMIENTO.INDIVIDUAL;
+    const destinoUpper = destino.valor.toUpperCase();
+
+    // Validar cada item y resolver contra el índice
+    const filas = [];
+    const errores = [];
+    const ids = [];
+
+    for (let i = 0; i < payload.items.length; i++) {
+      const item = payload.items[i];
+      const parteVal = validarTexto_(item.parte, REGEX.NUMERO_PARTE, "parte (item " + (i + 1) + ")");
+      if (!parteVal.ok) { errores.push(parteVal.mensaje); continue; }
+
+      const cantVal = validarCantidad_(item.cantidad, "cantidad (item " + (i + 1) + ")");
+      if (!cantVal.ok) { errores.push(cantVal.mensaje); continue; }
+
+      const articulo = obtenerArticuloPorIdentificador_(parteVal.valor);
+      if (!articulo) {
+        errores.push("Item " + (i + 1) + " (" + parteVal.valor + ") no existe en DATA_SAP");
+        continue;
+      }
+
+      const idMov = generarID();
+      ids.push(idMov);
+      filas.push([
+        idMov,
+        new Date(),
+        tipo,
+        documento,
+        articulo.parte || parteVal.valor,
+        articulo.codigo || "",
+        articulo.descripcion || "",
+        cantVal.valor,
+        articulo.ubicacion || "",
+        destinoUpper,
+        responsable.valor,
+        ESTADO_MOVIMIENTO.UBICADO,
+        false,
+        "",
+        "",
+        ""
+      ]);
+    }
+
+    if (filas.length === 0) {
+      return { exito: false, mensaje: "Ningún item válido. " + errores.slice(0, 3).join("; ") };
+    }
+
+    // Escritura atómica con lock
+    const lock = LockService.getDocumentLock();
+    try {
+      lock.waitLock(30000);
+      const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(HOJAS.BASE_OPERATIVA);
+      if (!sheet) return { exito: false, mensaje: "No existe la hoja BASE_OPERATIVA" };
+      const filaInicial = sheet.getLastRow() + 1;
+      sheet.getRange(filaInicial, 1, filas.length, BASE_OPERATIVA_WIDTH).setValues(filas);
+      cacheInvalidarSimple_(CACHE_KEYS.RESUMEN_INICIO);
+    } finally {
+      try { lock.releaseLock(); } catch (e) {}
+    }
+
+    return {
+      exito: true,
+      registrados: filas.length,
+      saltados: errores.length,
+      errores: errores.slice(0, 5),
+      ids: ids,
+      registradoPor: sesion.usuario
+    };
+  });
+}
