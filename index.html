@@ -14,7 +14,6 @@
 </script>
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script>
@@ -776,15 +775,10 @@
           </div>
           <div>
             <label class="label">Valor</label>
-            <div class="flex gap-2">
-              <div class="relative flex-1">
-                <input x-ref="buscadorInput" x-model="busqueda.valor" @input.debounce.250ms="ejecutarBusqueda()" @keydown.enter="ejecutarBusqueda()"
-                       placeholder="Ingrese el valor a buscar…" class="input pr-10">
-                <i data-lucide="search" class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"></i>
-              </div>
-              <button @click="abrirScanner('buscador', 'single')" class="btn btn-soft" title="Escanear código">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
-              </button>
+            <div class="relative">
+              <input x-ref="buscadorInput" x-model="busqueda.valor" @input.debounce.250ms="ejecutarBusqueda()" @keydown.enter="ejecutarBusqueda()"
+                     placeholder="Ingrese el valor a buscar…" class="input pr-10">
+              <i data-lucide="search" class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"></i>
             </div>
           </div>
           <div class="flex items-end gap-2">
@@ -901,9 +895,6 @@
                      placeholder="Ingresa parte (ej. 60347547) o código (ej. FER100266)"
                      class="input pr-28 font-mono">
               <div class="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
-                <button @click="abrirScanner('individual', 'single')" class="btn btn-soft btn-sm" title="Escanear código">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
-                </button>
                 <button @click="cargarArticulo()" class="btn btn-primary btn-sm" :disabled="!individual.parte">
                   <i data-lucide="search" class="w-3.5 h-3.5"></i>
                   Buscar
@@ -984,12 +975,7 @@
 
           <div>
             <label class="label">Ubicación destino</label>
-            <div class="flex gap-2">
-              <input x-model="individual.destino" placeholder="Ej. A-01-02" class="input flex-1 mono uppercase">
-              <button @click="abrirScanner('individual_destino', 'single')" class="btn btn-soft" title="Escanear etiqueta de ubicación">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
-              </button>
-            </div>
+            <input x-model="individual.destino" placeholder="Ej. A-01-02" class="input mono uppercase">
           </div>
           <div>
             <label class="label">Cantidad</label>
@@ -1032,16 +1018,16 @@
     </section>
 
     <!-- ======================== MASIVO ======================== -->
-    <!-- ======================== ESCANEO MASIVO (carrito) ======================== -->
+    <!-- ======================== CAPTURA MASIVA (carrito) ======================== -->
     <section x-show="vista==='escaneo'" x-transition.opacity class="space-y-5">
       <div class="card p-5">
         <div class="flex items-start justify-between mb-5 gap-3 flex-wrap">
           <div>
             <h3 class="section-title flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-red-600"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
-              Escaneo masivo
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-red-600"><line x1="11" y1="12" x2="20" y2="12"/><line x1="11" y1="5" x2="20" y2="5"/><line x1="11" y1="19" x2="20" y2="19"/><polyline points="3 4 4 5 6 3"/><polyline points="3 11 4 12 6 10"/><polyline points="3 18 4 19 6 17"/></svg>
+              Captura masiva
             </h3>
-            <p class="text-sm text-slate-500 dark:text-slate-400">Escanea varios códigos seguidos · todos van con el mismo destino + responsable</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Agrega varios items con el mismo destino + responsable · ideal para scanner HID o tipeo rápido</p>
           </div>
           <div class="flex items-center gap-2">
             <span class="chip chip-info" x-show="carrito.items.length > 0">
@@ -1064,12 +1050,7 @@
           </div>
           <div>
             <label class="label">Destino <span class="text-red-500">*</span></label>
-            <div class="flex gap-1">
-              <input x-model="carrito.destino" placeholder="Ej. PRUEBA-3" class="input flex-1 mono uppercase">
-              <button @click="abrirScanner('carrito_destino', 'single')" class="btn btn-soft !px-2" title="Escanear etiqueta de ubicación">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
-              </button>
-            </div>
+            <input x-model="carrito.destino" placeholder="Ej. PRUEBA-3" class="input mono uppercase">
           </div>
           <div>
             <label class="label">Responsable <span class="text-red-500">*</span></label>
@@ -1084,18 +1065,19 @@
           </div>
         </div>
 
-        <!-- Botones de captura -->
-        <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 mb-4">
-          <button @click="abrirScanner('carrito', 'continuo')" class="btn btn-primary text-base py-4">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
-            Escanear código (cámara)
-          </button>
+        <!-- Captura: input grande optimizado para scanner HID o tipeo -->
+        <div class="mb-4">
+          <label class="label">Capturar código</label>
           <div class="flex gap-2">
-            <input x-model="_carritoInputManual" @keydown.enter="_carritoAgregarManual()" placeholder="O tipea código…" class="input flex-1 mono">
-            <button @click="_carritoAgregarManual()" class="btn btn-soft" :disabled="!_carritoInputManual">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+            <input x-ref="carritoInput" x-model="_carritoInputManual" @keydown.enter.prevent="_carritoAgregarManual()"
+                   placeholder="Escanea con scanner HID o tipea el código + Enter"
+                   class="input flex-1 mono text-lg !py-3" autofocus>
+            <button @click="_carritoAgregarManual()" class="btn btn-primary !px-5" :disabled="!_carritoInputManual">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              Agregar
             </button>
           </div>
+          <p class="hint mt-1">💡 Si tienes scanner Android HID, enfoca el campo y dispara — agrega + Enter automático</p>
         </div>
 
         <!-- Lista de items en carrito -->
@@ -1659,72 +1641,6 @@
     </section>
 
     <!-- Modal: Referencias huérfanas (grupos sin match en DATA_SAP) -->
-    <!-- ======================= MODAL SCANNER (cámara) ======================= -->
-    <div x-show="scanner.abierto" @keydown.escape.window="cerrarScanner()" class="fixed inset-0 z-[110] flex items-center justify-center p-2" style="background: rgba(0,0,0,.85); backdrop-filter: blur(4px);">
-      <div class="card p-3 w-full max-w-md animate-scaleIn">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="font-bold flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-red-600"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
-            <span x-text="scanner.modo === 'continuo' ? 'Escaneo continuo (carrito)' : 'Escanear código'"></span>
-          </h3>
-          <button @click="cerrarScanner()" class="btn btn-ghost btn-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-          </button>
-        </div>
-        <div id="uby-scanner" class="w-full rounded-lg overflow-hidden bg-black" style="min-height: 280px;"></div>
-
-        <!-- Estado de error: permiso bloqueado o iframe sin allow="camera" -->
-        <div x-show="scanner.errorTipo === 'permiso' || scanner.errorTipo === 'sandbox'" class="mt-3 rounded-lg border-2 border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 p-3 text-sm">
-          <div class="flex items-center gap-2 mb-2 font-bold text-amber-900 dark:text-amber-200">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            Cámara bloqueada
-          </div>
-          <p class="text-amber-800 dark:text-amber-300 mb-2 text-xs">
-            Google Apps Script ejecuta esta app dentro de un iframe restringido que <strong>frecuentemente bloquea el acceso a la cámara</strong>, aunque el permiso del navegador esté habilitado. Esto es una limitación de la plataforma.
-          </p>
-          <p class="text-xs font-semibold text-amber-900 dark:text-amber-200 mt-3 mb-1">✅ Alternativas que sí funcionan:</p>
-          <ul class="list-disc list-inside text-xs text-amber-800 dark:text-amber-300 space-y-1 mb-3">
-            <li><strong>Scanner Android HID</strong> (el de hardware): solo enfoca el input y dispara el gatillo, escribe el código + Enter automático.</li>
-            <li><strong>Tipear manual</strong>: el botón abajo te abre un campo simple para escribir el código.</li>
-            <li><strong>Probar con el permiso</strong>: si nunca lo permitiste, click en el ícono 🔒 de la URL → Cámara → Permitir → recarga.</li>
-          </ul>
-          <div class="flex gap-2">
-            <button @click="cerrarScanner()" class="btn btn-ghost btn-sm flex-1">Cerrar</button>
-            <button @click="escanearManual(); cerrarScanner()" class="btn btn-primary btn-sm flex-1">Tipear manual</button>
-          </div>
-        </div>
-
-        <!-- Estado de error: sin cámara -->
-        <div x-show="scanner.errorTipo === 'sin_camara'" class="mt-3 rounded-lg border border-red-300 bg-red-50 dark:bg-red-900/20 p-3 text-sm">
-          <p class="font-semibold text-red-700 dark:text-red-300 mb-2">📷 Sin cámara detectada</p>
-          <p class="text-xs text-red-600 dark:text-red-400 mb-2">Este dispositivo no tiene cámara o no está disponible.</p>
-          <button @click="escanearManual(); cerrarScanner()" class="btn btn-primary btn-sm w-full">Tipear código manual</button>
-        </div>
-
-        <!-- Estado de error: cámara ocupada -->
-        <div x-show="scanner.errorTipo === 'ocupada'" class="mt-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm">
-          <p class="font-semibold text-amber-700 dark:text-amber-300 mb-2">⚠️ Cámara ocupada</p>
-          <p class="text-xs text-amber-600 dark:text-amber-400 mb-2" x-text="scanner.error"></p>
-          <button @click="escanearManual(); cerrarScanner()" class="btn btn-soft btn-sm w-full">Tipear manual</button>
-        </div>
-
-        <!-- Otros errores -->
-        <div x-show="scanner.errorTipo === 'otro' || scanner.errorTipo === 'no_soporte'" class="mt-3 rounded-lg border border-red-300 bg-red-50 dark:bg-red-900/20 p-3 text-sm">
-          <p class="font-semibold text-red-700 dark:text-red-300 mb-2">No se pudo abrir la cámara</p>
-          <p class="text-xs text-red-600 dark:text-red-400 mb-2" x-text="scanner.error"></p>
-          <button @click="escanearManual(); cerrarScanner()" class="btn btn-primary btn-sm w-full">Tipear código manual</button>
-        </div>
-
-        <div class="mt-3 flex items-center justify-between gap-2" x-show="!scanner.error">
-          <button @click="toggleTorch()" class="btn btn-ghost btn-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14a5 5 0 0 0-5 5l-2 1 1.5 4 5-2v-3"/><path d="M9 14V8a2 2 0 0 1 2-2h4"/><path d="M15 6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>
-            <span x-text="scanner.torchOn ? 'Linterna ON' : 'Linterna'"></span>
-          </button>
-          <span class="text-xs text-slate-500 dark:text-slate-400" x-show="scanner.modo === 'continuo'">Sigue escaneando · Cierra cuando termines</span>
-        </div>
-      </div>
-    </div>
-
     <div x-show="huerfanos.abierto" @keydown.escape.window="huerfanos.abierto=false" class="fixed inset-0 z-[105] flex items-center justify-center p-4" style="background: rgba(15,23,42,.55); backdrop-filter: blur(6px);" @click.self="huerfanos.abierto=false">
       <div class="card p-5 w-full max-w-3xl animate-scaleIn max-h-[80vh] flex flex-col">
         <div class="flex items-start justify-between gap-3 mb-4">
@@ -1799,20 +1715,7 @@
       // Modal de huérfanos (solo AGENTE)
       huerfanos: { abierto: false, lista: [], cargando: false },
 
-      // Scanner de códigos de barras / QR (móvil)
-      scanner: {
-        abierto: false,
-        modo: 'single',     // 'single' (cierra al detectar) | 'continuo' (carrito)
-        target: null,       // 'buscador' | 'individual' | 'individual_destino' | 'carrito_destino' | 'carrito'
-        ultimoCodigo: '',
-        ultimoTimestamp: 0,
-        instancia: null,    // referencia al objeto Html5Qrcode
-        error: '',
-        errorTipo: '',      // 'permiso' | 'sin_camara' | 'otro'
-        torchOn: false
-      },
-
-      // Carrito de escaneo masivo
+      // Carrito de captura masiva (sin cámara — solo HID scanner / tipeo)
       carrito: {
         items: [],
         tipo: 'INTERNO',
@@ -1850,7 +1753,7 @@
         { id: 'menu',       label: 'Menú',             icono: 'layout-dashboard', rol: 'AUXILIAR' },
         { id: 'buscador',   label: 'Buscador',         icono: 'search',           rol: 'COMERCIAL' },
         { id: 'individual', label: 'Ingreso Individual', icono: 'package-plus',   rol: 'AUXILIAR' },
-        { id: 'escaneo',    label: 'Escaneo Masivo',   icono: 'scan-line',        rol: 'AUXILIAR' },
+        { id: 'escaneo',    label: 'Captura Masiva',   icono: 'list-plus',        rol: 'AUXILIAR' },
         { id: 'masivo',     label: 'Ingreso Masivo',   icono: 'layers',           rol: 'AUXILIAR' },
         { id: 'ejecucion',  label: 'Ejecución SAP',    icono: 'check-square',     rol: 'AGENTE' },
         { id: 'historial',  label: 'Historial',        icono: 'history',          rol: 'AUXILIAR' },
@@ -2687,184 +2590,7 @@
         return [...s].sort();
       },
 
-      // ======================= SCANNER (cámara) =======================
-      _beep() {
-        try {
-          const ctx = new (window.AudioContext || window.webkitAudioContext)();
-          const o = ctx.createOscillator();
-          const g = ctx.createGain();
-          o.frequency.value = 880;
-          o.type = 'sine';
-          g.gain.value = 0.15;
-          o.connect(g); g.connect(ctx.destination);
-          o.start();
-          setTimeout(() => { o.stop(); ctx.close(); }, 90);
-        } catch (e) {}
-        try { if (navigator.vibrate) navigator.vibrate(80); } catch (e) {}
-      },
-
-      abrirScanner(target, modo) {
-        if (!window.Html5Qrcode) {
-          this.toast('Cargando escáner…', 'info');
-          // Reintenta en 1s si la lib aún no llegó del CDN
-          setTimeout(() => this.abrirScanner(target, modo), 800);
-          return;
-        }
-        this.scanner.target = target;
-        this.scanner.modo = modo || 'single';
-        this.scanner.error = '';
-        this.scanner.ultimoCodigo = '';
-        this.scanner.torchOn = false;
-        this.scanner.abierto = true;
-        this.$nextTick(() => this._iniciarScanner());
-      },
-
-      _iniciarScanner() {
-        const el = document.getElementById('uby-scanner');
-        if (!el) return;
-
-        // Pre-flight: probamos getUserMedia directo para diagnóstico claro.
-        // Apps Script sirve el HTML en un iframe que a veces no tiene
-        // 'allow="camera"' en su Permission Policy → camera bloqueada
-        // independientemente del permiso del usuario.
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          this.scanner.errorTipo = 'no_soporte';
-          this.scanner.error = 'Tu navegador no soporta acceso a cámara.';
-          return;
-        }
-
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-          .then(stream => {
-            // Cerramos el stream de prueba — html5-qrcode abrirá su propio stream
-            stream.getTracks().forEach(t => t.stop());
-            this._iniciarScannerLib();
-          })
-          .catch(err => {
-            const name = (err && err.name) || '';
-            const msg = String(err && err.message ? err.message : err);
-            console.warn('[UBY] getUserMedia error:', name, msg);
-
-            if (name === 'NotAllowedError' || /permission|denied/i.test(msg)) {
-              // Puede ser: usuario denegó / iframe sin allow="camera" / política de empresa
-              this.scanner.errorTipo = 'permiso';
-              this.scanner.error = msg;
-            } else if (name === 'NotFoundError' || /not.?found|nocamera|no hay/i.test(msg)) {
-              this.scanner.errorTipo = 'sin_camara';
-              this.scanner.error = 'No se detectó ninguna cámara.';
-            } else if (name === 'NotReadableError' || /readable|busy|in use/i.test(msg)) {
-              this.scanner.errorTipo = 'ocupada';
-              this.scanner.error = 'La cámara está siendo usada por otra app. Ciérrala e inténtalo de nuevo.';
-            } else if (name === 'SecurityError' || /policy|sandbox/i.test(msg)) {
-              this.scanner.errorTipo = 'sandbox';
-              this.scanner.error = 'El sandbox de Google Apps Script bloqueó la cámara.';
-            } else {
-              this.scanner.errorTipo = 'otro';
-              this.scanner.error = (name ? name + ': ' : '') + msg;
-            }
-          });
-      },
-
-      _iniciarScannerLib() {
-        const formats = [
-          Html5QrcodeSupportedFormats.QR_CODE,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.ITF
-        ];
-        const inst = new Html5Qrcode("uby-scanner", { formatsToSupport: formats, verbose: false });
-        this.scanner.instancia = inst;
-        const config = {
-          fps: 10,
-          qrbox: { width: 260, height: 200 },
-          aspectRatio: 1.333,
-          disableFlip: false
-        };
-        const arrancarCon = (constraint) => inst.start(
-          constraint,
-          config,
-          (decoded) => this._onCodigoDetectado(decoded),
-          () => {}
-        );
-        arrancarCon({ facingMode: "environment" })
-          .catch(() => Html5Qrcode.getCameras().then(cams => {
-            if (!cams || cams.length === 0) throw new Error("No hay cámaras disponibles");
-            return arrancarCon(cams[cams.length - 1].id);
-          }))
-          .catch(err => {
-            this.scanner.errorTipo = 'otro';
-            this.scanner.error = String(err && err.message ? err.message : err);
-          });
-      },
-
-      escanearManual() {
-        // Abre prompt simple para tipeo manual cuando la cámara no funciona
-        const valor = prompt('Tipea el código manualmente:');
-        if (!valor) return;
-        this._onCodigoDetectado(valor.trim());
-      },
-
-      _onCodigoDetectado(codigo) {
-        const code = String(codigo || '').trim();
-        if (!code) return;
-        // Anti-rebote: ignora el mismo código si llegó en <1.5s (cámara dispara varias veces)
-        const now = Date.now();
-        if (code === this.scanner.ultimoCodigo && (now - this.scanner.ultimoTimestamp) < 1500) return;
-        this.scanner.ultimoCodigo = code;
-        this.scanner.ultimoTimestamp = now;
-        this._beep();
-
-        if (this.scanner.target === 'buscador') {
-          this.busqueda.valor = code;
-          this.cerrarScanner();
-          this.ejecutarBusqueda();
-        } else if (this.scanner.target === 'individual') {
-          this.individual.parte = code;
-          this.cerrarScanner();
-          this.cargarArticulo();
-        } else if (this.scanner.target === 'individual_destino') {
-          this.individual.destino = code.toUpperCase();
-          this.cerrarScanner();
-          this.toast('Destino: ' + code.toUpperCase(), 'ok');
-        } else if (this.scanner.target === 'carrito_destino') {
-          this.carrito.destino = code.toUpperCase();
-          this.cerrarScanner();
-          this.toast('Destino: ' + code.toUpperCase(), 'ok');
-        } else if (this.scanner.target === 'carrito') {
-          // Modo continuo — no cierra cámara, agrega al carrito
-          this._carritoAgregarPorCodigo(code);
-        }
-      },
-
-      cerrarScanner() {
-        const inst = this.scanner.instancia;
-        if (inst) {
-          try {
-            inst.stop().then(() => { try { inst.clear(); } catch (e) {} }).catch(() => {});
-          } catch (e) {}
-        }
-        this.scanner.instancia = null;
-        this.scanner.abierto = false;
-        this.scanner.torchOn = false;
-      },
-
-      toggleTorch() {
-        const inst = this.scanner.instancia;
-        if (!inst) return;
-        const newState = !this.scanner.torchOn;
-        try {
-          inst.applyVideoConstraints({ advanced: [{ torch: newState }] })
-            .then(() => { this.scanner.torchOn = newState; })
-            .catch(() => this.toast('Linterna no soportada en este dispositivo', 'warn'));
-        } catch (e) {
-          this.toast('Linterna no soportada', 'warn');
-        }
-      },
-
-      // ======================= CARRITO (escaneo masivo) =======================
+      // ======================= CARRITO (captura masiva) =======================
       _carritoAgregarPorCodigo(codigo) {
         // Si ya está, incrementa
         const yaExiste = this.carrito.items.find(x => x.codigoEntrada === codigo);
@@ -2979,7 +2705,7 @@
           { titulo: 'Ir al Menú',            subtitulo: 'Dashboard principal',          icono: 'layout-dashboard', atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('menu') },
           { titulo: 'Buscador',              subtitulo: 'Consultar DATA_SAP',           icono: 'search',           atajo: '/', rol: 'AUXILIAR', accion: () => this.navegar('buscador') },
           { titulo: 'Ingreso individual',    subtitulo: 'Registrar un movimiento',      icono: 'package-plus',     atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('individual') },
-          { titulo: 'Escaneo masivo',        subtitulo: 'Carrito con escáner de cámara', icono: 'scan-line',       atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('escaneo') },
+          { titulo: 'Captura masiva',        subtitulo: 'Carrito de movimientos por scanner HID o tipeo', icono: 'list-plus',  atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('escaneo') },
           { titulo: 'Ingreso masivo',        subtitulo: 'Preparar trabajo desde documento', icono: 'layers',       atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('masivo') },
           { titulo: 'Ejecución SAP',         subtitulo: 'Marcar movimientos como ejecutados', icono: 'check-square', atajo: '', rol: 'AGENTE', accion: () => this.navegar('ejecucion') },
           { titulo: 'Historial',             subtitulo: 'Últimos movimientos',          icono: 'history',          atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('historial') },
