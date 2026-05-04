@@ -2687,14 +2687,19 @@
           aspectRatio: 1.333,
           disableFlip: false
         };
-        inst.start(
-          { facingMode: { ideal: "environment" } },
+        // html5-qrcode acepta facingMode como string puro o {exact: ...}, NO {ideal: ...}
+        // Intenta cámara trasera primero; si falla (ej. tablet sin cámara trasera), cae a cualquiera disponible
+        const arrancarCon = (constraint) => inst.start(
+          constraint,
           config,
           (decoded) => this._onCodigoDetectado(decoded),
-          () => {} // ignore decode failures (constant)
-        ).catch(err => {
-          this.scanner.error = 'No se pudo abrir la cámara: ' + (err && err.message ? err.message : err);
-        });
+          () => {}
+        );
+        arrancarCon({ facingMode: "environment" })
+          .catch(() => arrancarCon(true))  // fallback: cualquier cámara
+          .catch(err => {
+            this.scanner.error = 'No se pudo abrir la cámara: ' + (err && err.message ? err.message : err);
+          });
       },
 
       _onCodigoDetectado(codigo) {
