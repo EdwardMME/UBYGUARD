@@ -33,3 +33,12 @@ referencias_cruzadas_limpio.tsv
 
 # Temporales del análisis
 .tmp_*
+
+# Credenciales (NUNCA subir al repo — público)
+*credentials*
+*.pdf
+*-secret*
+*-key*
+.env
+.env.*
+
