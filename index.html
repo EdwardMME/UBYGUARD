@@ -858,14 +858,33 @@
         </div>
         <div x-show="pedidos.previewAbierto?.comentarios" class="rounded-lg bg-slate-50 dark:bg-slate-800 p-3 mb-3 text-sm" x-text="pedidos.previewAbierto?.comentarios"></div>
         <div class="flex-1 overflow-y-auto">
-          <div class="text-xs uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400 mb-2" x-text="'Items (' + (pedidos.previewLineas?.length || 0) + ')'"></div>
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-xs uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400">
+              <span x-text="'Items para preparar: ' + (pedidos.previewLineas?.filter(l => l.incluida).length || 0)"></span>
+              <span x-show="pedidos.previewLineas?.some(l => !l.incluida)" class="ml-2 text-slate-400 normal-case font-normal">
+                · <span x-text="pedidos.previewLineas.filter(l => !l.incluida).length"></span> excluidas
+              </span>
+            </div>
+            <span x-show="sesion.rol === 'AGENTE'" class="text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold">Modo agente · clasifica</span>
+          </div>
           <div class="space-y-1">
             <template x-for="l in pedidos.previewLineas" :key="l.lineNum">
-              <div class="flex items-center gap-3 text-sm py-1.5 border-b border-[color:var(--border)] last:border-0">
+              <div class="flex items-center gap-2 text-sm py-1.5 border-b border-[color:var(--border)] last:border-0"
+                   :class="{ 'opacity-50': !l.incluida }">
+                <!-- Toggle solo para AGENTE -->
+                <button x-show="sesion.rol === 'AGENTE'"
+                        @click="toggleIncluida(l)"
+                        :title="l.incluida ? 'Excluir de preparación' : 'Incluir en preparación'"
+                        class="flex-shrink-0 w-8 h-5 rounded-full transition-colors relative"
+                        :class="l.incluida ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'">
+                  <span class="block w-4 h-4 bg-white rounded-full shadow absolute top-0.5 transition-all"
+                        :class="l.incluida ? 'left-3.5' : 'left-0.5'"></span>
+                </button>
                 <span class="mono font-bold text-slate-700 dark:text-slate-200 min-w-[80px]" x-text="l.itemCode"></span>
                 <span class="flex-1 truncate" x-text="l.descripcion"></span>
+                <span x-show="!l.incluida" class="chip chip-mute text-[9px]" :title="l.motivoExclusion || 'excluida'">EXC</span>
                 <span class="mono font-bold text-amber-700 dark:text-amber-400" x-text="l.cantidadPedida + ' u'"></span>
-                <span class="mono text-xs text-slate-500" x-text="l.ubicacion || '—'"></span>
+                <span class="mono text-xs text-slate-500 hide-mobile" x-text="l.ubicacion || '—'"></span>
               </div>
             </template>
           </div>
@@ -909,18 +928,21 @@
         <div class="mb-4">
           <div class="flex items-center justify-between text-sm mb-1">
             <span class="font-semibold">
-              <span x-text="pedidos.lineas.filter(l => l.estado !== 'PENDIENTE').length"></span> de <span x-text="pedidos.lineas.length"></span> items resueltos
+              <span x-text="lineasIncluidas().filter(l => l.estado !== 'PENDIENTE').length"></span> de <span x-text="lineasIncluidas().length"></span> items resueltos
             </span>
             <span class="text-slate-500" x-text="progresoTicket() + '%'"></span>
           </div>
           <div class="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
             <div class="h-full bg-gradient-to-r from-amber-500 to-emerald-500 transition-all" :style="'width:' + progresoTicket() + '%'"></div>
           </div>
+          <p x-show="pedidos.lineas.some(l => !l.incluida)" class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+            <span x-text="pedidos.lineas.filter(l => !l.incluida).length"></span> líneas excluidas por el agente (servicios / no inventario) no se muestran aquí.
+          </p>
         </div>
 
-        <!-- Lista de items -->
+        <!-- Lista de items (sólo incluidas) -->
         <div class="space-y-2">
-          <template x-for="l in pedidos.lineas" :key="l.lineNum">
+          <template x-for="l in lineasIncluidas()" :key="l.lineNum">
             <div class="rounded-lg border p-3 transition-colors"
                  :class="{
                    'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800/50': l.estado === 'PENDIENTE',
@@ -2908,6 +2930,32 @@
 
       cerrarPreview() { this.pedidos.previewAbierto = null; this.pedidos.previewLineas = []; },
 
+      toggleIncluida(linea) {
+        if (this.sesion.rol !== 'AGENTE') return;
+        if (linea.estado === 'RECOGIDO' || linea.estado === 'FALTANTE') {
+          this.toast('La línea ya fue trabajada, no se puede cambiar', 'warn');
+          return;
+        }
+        const t = this.pedidos.previewAbierto;
+        if (!t) return;
+        const nuevoIncluir = !linea.incluida;
+        // Optimista en UI
+        linea.incluida = nuevoIncluir;
+        this.rpc('toggleLineaIncluida', t.ticketId, linea.lineNum, nuevoIncluir, '').then(res => {
+          if (res && res.exito) {
+            this.toast(res.mensaje, 'ok');
+            // Refresca contador del cuadrito
+            this.cargarPedidos();
+          } else {
+            linea.incluida = !nuevoIncluir; // rollback
+            this.toast(res && res.mensaje || 'Error', 'err');
+          }
+        }).catch(() => {
+          linea.incluida = !nuevoIncluir;
+          this.toast('Error de red', 'err');
+        });
+      },
+
       tomarPedidoDesdePreview() {
         const t = this.pedidos.previewAbierto;
         if (!t) return;
@@ -2978,14 +3026,19 @@
         return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r;
       },
 
+      lineasIncluidas() {
+        return (this.pedidos.lineas || []).filter(l => l.incluida);
+      },
+
       lineasPendientes() {
-        return (this.pedidos.lineas || []).filter(l => l.estado === 'PENDIENTE');
+        return this.lineasIncluidas().filter(l => l.estado === 'PENDIENTE');
       },
 
       progresoTicket() {
-        const total = (this.pedidos.lineas || []).length;
+        const inc = this.lineasIncluidas();
+        const total = inc.length;
         if (!total) return 0;
-        const resueltas = this.pedidos.lineas.filter(l => l.estado !== 'PENDIENTE').length;
+        const resueltas = inc.filter(l => l.estado !== 'PENDIENTE').length;
         return Math.round((resueltas / total) * 100);
       },
 

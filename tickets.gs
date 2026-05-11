@@ -121,6 +121,9 @@ function instalarTriggerSyncTickets() {
 }
 
 function crearTicket_(ticketsSheet, lineasSheet, ticketId, q, lineas) {
+  // Auto-clasificación: cuenta cuántas líneas son para inventario
+  const lineasParaPrep = lineas.filter(function(l) { return esLineaInventario_(l.itemCode); });
+
   const fila = new Array(TICKETS_HEADERS.length).fill("");
   fila[TICKETS_COLS.TICKET_ID - 1] = ticketId;
   fila[TICKETS_COLS.DOC_NUM - 1] = q.docNum;
@@ -132,14 +135,15 @@ function crearTicket_(ticketsSheet, lineasSheet, ticketId, q, lineas) {
   fila[TICKETS_COLS.NUM_AT_CARD - 1] = q.numAtCard || "";
   fila[TICKETS_COLS.SALES_PERSON - 1] = q.salesPersonName || "";
   fila[TICKETS_COLS.ESTADO - 1] = ESTADOS_TICKET.ABIERTO;
-  fila[TICKETS_COLS.ITEMS_TOTAL - 1] = lineas.length;
+  fila[TICKETS_COLS.ITEMS_TOTAL - 1] = lineasParaPrep.length; // solo cuenta items de inventario
   fila[TICKETS_COLS.ITEMS_RECOGIDOS - 1] = 0;
   fila[TICKETS_COLS.FECHA_SYNC - 1] = new Date();
   ticketsSheet.appendRow(fila);
 
-  // Líneas
+  // Líneas: todas se guardan, pero las SER* (servicios) van con INCLUIDA_PREPARACION = false
   const filasLineas = lineas.map(function(l, idx) {
     const f = new Array(TICKETS_LINEAS_HEADERS.length).fill("");
+    const incluida = esLineaInventario_(l.itemCode);
     f[TICKETS_LINEAS_COLS.TICKET_ID - 1] = ticketId;
     f[TICKETS_LINEAS_COLS.LINE_NUM - 1] = l.lineNum != null ? l.lineNum : idx;
     f[TICKETS_LINEAS_COLS.ITEM_CODE - 1] = l.itemCode || "";
@@ -148,12 +152,28 @@ function crearTicket_(ticketsSheet, lineasSheet, ticketId, q, lineas) {
     f[TICKETS_LINEAS_COLS.CANTIDAD_RECOGIDA - 1] = 0;
     f[TICKETS_LINEAS_COLS.UBICACION - 1] = l.binCode || "";
     f[TICKETS_LINEAS_COLS.ESTADO_LINEA - 1] = ESTADOS_LINEA_TICKET.PENDIENTE;
+    f[TICKETS_LINEAS_COLS.INCLUIDA_PREPARACION - 1] = incluida;
+    f[TICKETS_LINEAS_COLS.EXCLUIDA_POR - 1] = incluida ? "" : "sistema";
+    f[TICKETS_LINEAS_COLS.MOTIVO_EXCLUSION - 1] = incluida ? "" : "servicio (no inventario)";
     return f;
   });
   if (filasLineas.length > 0) {
     const fi = lineasSheet.getLastRow() + 1;
     lineasSheet.getRange(fi, 1, filasLineas.length, TICKETS_LINEAS_HEADERS.length).setValues(filasLineas);
   }
+}
+
+/**
+ * Detecta si un itemCode representa inventario físico (a preparar) o servicio.
+ * Hoy: cualquier prefijo en PREFIJOS_NO_INVENTARIO = NO. Otros = SÍ.
+ */
+function esLineaInventario_(itemCode) {
+  const code = String(itemCode || "").trim().toUpperCase();
+  if (!code) return false;
+  for (let i = 0; i < PREFIJOS_NO_INVENTARIO.length; i++) {
+    if (code.indexOf(PREFIJOS_NO_INVENTARIO[i]) === 0) return false;
+  }
+  return true;
 }
 
 function actualizarTicketAbierto_(ticketsSheet, lineasSheet, row, ticketId, q, lineas) {
@@ -163,7 +183,8 @@ function actualizarTicketAbierto_(ticketsSheet, lineasSheet, row, ticketId, q, l
   ticketsSheet.getRange(row, TICKETS_COLS.CARD_NAME).setValue(q.cardName || "");
   ticketsSheet.getRange(row, TICKETS_COLS.NUM_AT_CARD).setValue(q.numAtCard || "");
   ticketsSheet.getRange(row, TICKETS_COLS.SALES_PERSON).setValue(q.salesPersonName || "");
-  ticketsSheet.getRange(row, TICKETS_COLS.ITEMS_TOTAL).setValue(lineas.length);
+  const incluidas = lineas.filter(function(l) { return esLineaInventario_(l.itemCode); });
+  ticketsSheet.getRange(row, TICKETS_COLS.ITEMS_TOTAL).setValue(incluidas.length);
   ticketsSheet.getRange(row, TICKETS_COLS.FECHA_SYNC).setValue(new Date());
   // No re-escribimos las líneas para no perder progreso si el auxiliar empezó
 }
@@ -291,6 +312,13 @@ function marcarItemRecogido(token, ticketId, lineNum, datos) {
       if (estadoActual === ESTADOS_LINEA_TICKET.RECOGIDO) {
         return { exito: false, mensaje: "Línea ya estaba marcada como recogida" };
       }
+      const incluidaLinea = parseBoolIncluida_(
+        filaLinea.data[TICKETS_LINEAS_COLS.INCLUIDA_PREPARACION - 1],
+        filaLinea.data[TICKETS_LINEAS_COLS.ITEM_CODE - 1]
+      );
+      if (!incluidaLinea) {
+        return { exito: false, mensaje: "Línea excluida de la preparación por el agente" };
+      }
 
       const d = datos || {};
       const cantidadPedida = Number(filaLinea.data[TICKETS_LINEAS_COLS.CANTIDAD_PEDIDA - 1] || 0);
@@ -344,15 +372,16 @@ function marcarItemRecogido(token, ticketId, lineNum, datos) {
         }
       }
 
-      // Actualiza contador en cabecera del ticket
+      // Actualiza contador en cabecera del ticket (sólo cuenta líneas incluidas)
       const filaT = buscarTicketRow_(ticketsSheet, ticketId);
       if (filaT) {
         const totalLineas = obtenerLineasDeTicket_(lineasSheet, ticketId);
-        const recogidos = totalLineas.filter(function(l) {
+        const incluidas = totalLineas.filter(function(l) { return l.incluida; });
+        const recogidos = incluidas.filter(function(l) {
           return l.estado === ESTADOS_LINEA_TICKET.RECOGIDO || l.estado === ESTADOS_LINEA_TICKET.FALTANTE;
         }).length;
         ticketsSheet.getRange(filaT.row, TICKETS_COLS.ITEMS_RECOGIDOS).setValue(recogidos);
-        ticketsSheet.getRange(filaT.row, TICKETS_COLS.ITEMS_TOTAL).setValue(totalLineas.length);
+        ticketsSheet.getRange(filaT.row, TICKETS_COLS.ITEMS_TOTAL).setValue(incluidas.length);
       }
 
       cacheInvalidarSimple_(CACHE_KEYS.RESUMEN_INICIO);
@@ -362,6 +391,56 @@ function marcarItemRecogido(token, ticketId, lineNum, datos) {
         movimientoId: movimientoId,
         nuevoEstado: nuevoEstado
       };
+    } finally {
+      try { lock.releaseLock(); } catch (e) {}
+    }
+  });
+}
+
+/**
+ * AGENTE toggle: incluir / excluir una línea del ticket de la preparación.
+ * No se permite si la línea ya fue trabajada (RECOGIDO o FALTANTE).
+ * Recalcula contadores en la cabecera.
+ */
+function toggleLineaIncluida(token, ticketId, lineNum, incluir, motivo) {
+  return conSesion_(token, ROLES.AGENTE, function(sesion) {
+    const lineasSheet = asegurarHojaTicketsLineas_();
+    const ticketsSheet = asegurarHojaTickets_();
+    const lock = LockService.getDocumentLock();
+    try {
+      lock.waitLock(15000);
+
+      const filaLinea = buscarLineaRow_(lineasSheet, ticketId, lineNum);
+      if (!filaLinea) return { exito: false, mensaje: "Línea no encontrada" };
+
+      const estadoActual = String(filaLinea.data[TICKETS_LINEAS_COLS.ESTADO_LINEA - 1] || "");
+      if (estadoActual === ESTADOS_LINEA_TICKET.RECOGIDO || estadoActual === ESTADOS_LINEA_TICKET.FALTANTE) {
+        return { exito: false, mensaje: "La línea ya fue trabajada, no se puede cambiar" };
+      }
+
+      const nuevaIncluida = (incluir === true);
+      lineasSheet.getRange(filaLinea.row, TICKETS_LINEAS_COLS.INCLUIDA_PREPARACION).setValue(nuevaIncluida);
+      lineasSheet.getRange(filaLinea.row, TICKETS_LINEAS_COLS.EXCLUIDA_POR).setValue(
+        nuevaIncluida ? "" : (sesion.nombre || sesion.usuario)
+      );
+      lineasSheet.getRange(filaLinea.row, TICKETS_LINEAS_COLS.MOTIVO_EXCLUSION).setValue(
+        nuevaIncluida ? "" : normalizarTexto(motivo || "excluida por agente")
+      );
+
+      // Recalcula contadores en la cabecera
+      const filaT = buscarTicketRow_(ticketsSheet, ticketId);
+      if (filaT) {
+        const todas = obtenerLineasDeTicket_(lineasSheet, ticketId);
+        const incluidas = todas.filter(function(l) { return l.incluida; });
+        const recogidos = incluidas.filter(function(l) {
+          return l.estado === ESTADOS_LINEA_TICKET.RECOGIDO || l.estado === ESTADOS_LINEA_TICKET.FALTANTE;
+        }).length;
+        ticketsSheet.getRange(filaT.row, TICKETS_COLS.ITEMS_TOTAL).setValue(incluidas.length);
+        ticketsSheet.getRange(filaT.row, TICKETS_COLS.ITEMS_RECOGIDOS).setValue(recogidos);
+      }
+
+      cacheInvalidarSimple_(CACHE_KEYS.RESUMEN_INICIO);
+      return { exito: true, mensaje: nuevaIncluida ? "Línea incluida" : "Línea excluida", incluida: nuevaIncluida };
     } finally {
       try { lock.releaseLock(); } catch (e) {}
     }
@@ -384,7 +463,9 @@ function marcarTicketListo(token, ticketId) {
         return { exito: false, mensaje: "El ticket no está EN_PREP" };
       }
       const lineas = obtenerLineasDeTicket_(lineasSheet, ticketId);
-      const pendientes = lineas.filter(function(l) { return l.estado === ESTADOS_LINEA_TICKET.PENDIENTE; });
+      const pendientes = lineas.filter(function(l) {
+        return l.incluida && l.estado === ESTADOS_LINEA_TICKET.PENDIENTE;
+      });
       if (pendientes.length > 0) {
         return { exito: false, mensaje: "Faltan " + pendientes.length + " líneas por resolver" };
       }
@@ -485,6 +566,9 @@ function obtenerLineasDeTicket_(sheet, ticketId) {
   return data
     .filter(function(r) { return String(r[TICKETS_LINEAS_COLS.TICKET_ID - 1]).trim() === idStr; })
     .map(function(r) {
+      // Lecturas tolerantes para filas antiguas sin estas columnas (vienen undefined o "")
+      const rawInc = r[TICKETS_LINEAS_COLS.INCLUIDA_PREPARACION - 1];
+      const incluida = parseBoolIncluida_(rawInc, r[TICKETS_LINEAS_COLS.ITEM_CODE - 1]);
       return {
         ticketId: r[TICKETS_LINEAS_COLS.TICKET_ID - 1],
         lineNum: r[TICKETS_LINEAS_COLS.LINE_NUM - 1],
@@ -497,9 +581,25 @@ function obtenerLineasDeTicket_(sheet, ticketId) {
         motivoFalta: r[TICKETS_LINEAS_COLS.MOTIVO_FALTA - 1] || "",
         recogidoEn: formatearFechaSimple_(r[TICKETS_LINEAS_COLS.RECOGIDO_EN - 1], tz),
         recogidoPor: r[TICKETS_LINEAS_COLS.RECOGIDO_POR - 1] || "",
-        movimientoId: r[TICKETS_LINEAS_COLS.MOVIMIENTO_ID - 1] || ""
+        movimientoId: r[TICKETS_LINEAS_COLS.MOVIMIENTO_ID - 1] || "",
+        incluida: incluida,
+        excluidaPor: r[TICKETS_LINEAS_COLS.EXCLUIDA_POR - 1] || "",
+        motivoExclusion: r[TICKETS_LINEAS_COLS.MOTIVO_EXCLUSION - 1] || ""
       };
     });
+}
+
+/**
+ * Filas viejas no tienen INCLUIDA_PREPARACION: se infiere por el prefijo (SER → false, resto → true).
+ * Si la celda ya tiene un booleano explícito, se respeta.
+ */
+function parseBoolIncluida_(raw, itemCode) {
+  if (raw === true || raw === false) return raw;
+  const s = String(raw == null ? "" : raw).trim().toUpperCase();
+  if (s === "TRUE" || s === "VERDADERO" || s === "SI" || s === "SÍ") return true;
+  if (s === "FALSE" || s === "FALSO" || s === "NO") return false;
+  // celda vacía → fallback por prefijo
+  return esLineaInventario_(itemCode);
 }
 
 function mapearTicketFila_(r, tz) {

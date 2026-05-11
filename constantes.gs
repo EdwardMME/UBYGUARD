@@ -85,7 +85,10 @@ const TICKETS_LINEAS_HEADERS = [
   "MOTIVO_FALTA",
   "RECOGIDO_EN",
   "RECOGIDO_POR",
-  "MOVIMIENTO_ID"
+  "MOVIMIENTO_ID",
+  "INCLUIDA_PREPARACION",
+  "EXCLUIDA_POR",
+  "MOTIVO_EXCLUSION"
 ];
 
 const TICKETS_LINEAS_COLS = {
@@ -100,8 +103,15 @@ const TICKETS_LINEAS_COLS = {
   MOTIVO_FALTA: 9,
   RECOGIDO_EN: 10,
   RECOGIDO_POR: 11,
-  MOVIMIENTO_ID: 12
+  MOVIMIENTO_ID: 12,
+  INCLUIDA_PREPARACION: 13,
+  EXCLUIDA_POR: 14,
+  MOTIVO_EXCLUSION: 15
 };
+
+// Prefijos de itemCode que NO son inventario físico (servicios, mano obra, etc.)
+// El sync los auto-excluye. El agente puede toggle manualmente otros si necesita.
+const PREFIJOS_NO_INVENTARIO = ["SER"];
 
 // Estructura esperada de la hoja REFERENCIAS_CRUZADAS:
 //   col A: codigo  | col B: grupo_id  | col C: descripcion
