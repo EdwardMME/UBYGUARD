@@ -140,17 +140,16 @@ function sapListarItems_(filtros) {
 }
 
 // ============ Funciones administrativas (ejecutar desde editor) ============
+// Nota: SIN underscore final → aparecen en el dropdown "Run" del editor.
 
 /**
- * Setea la API key en Script Properties. EJECUTAR desde el editor de Apps Script:
- *   1. Abre el editor (clasp open-script o script.google.com)
- *   2. Selecciona esta función en el dropdown "Run"
- *   3. Cuando pida la key, edita el código y vuelve a correr (NO se puede pasar arg desde el menú)
- *
- * NOTA: este editor NO soporta prompts. Edita la línea API_KEY_TEMPORAL más abajo,
- * corre la función UNA vez, y borra la línea inmediatamente después.
+ * Setea la API key en Script Properties.
+ * USO:
+ *   1. Edita la línea API_KEY_TEMPORAL más abajo y pega tu key
+ *   2. Run → sapConfigurarApiKey
+ *   3. Borra la línea (volvé a poner "") y Ctrl+S
  */
-function sapConfigurarApiKey_() {
+function sapConfigurarApiKey() {
   // ⚠️ Pega la key acá temporalmente, corre la función, y luego borra la línea
   const API_KEY_TEMPORAL = "";
 
@@ -165,31 +164,34 @@ function sapConfigurarApiKey_() {
 /**
  * Verifica si la API key está configurada (sin revelarla).
  */
-function sapVerificarApiKey_() {
+function sapVerificarApiKey() {
   const k = PropertiesService.getScriptProperties().getProperty(SAP_PROP_KEY);
-  if (!k) return "❌ NO configurada. Corre sapConfigurarApiKey_() primero.";
-  return "✅ Configurada (longitud: " + k.length + " chars, prefijo: " + k.substring(0, 8) + "...)";
+  if (!k) {
+    console.log("❌ NO configurada. Corre sapConfigurarApiKey primero.");
+    return "❌ NO configurada";
+  }
+  const msg = "✅ Configurada (longitud: " + k.length + " chars, prefijo: " + k.substring(0, 8) + "...)";
+  console.log(msg);
+  return msg;
 }
 
 /**
  * Borra la API key de Script Properties (rotación / emergencia).
  */
-function sapBorrarApiKey_() {
+function sapBorrarApiKey() {
   PropertiesService.getScriptProperties().deleteProperty(SAP_PROP_KEY);
+  console.log("API key borrada.");
   return "API key borrada.";
 }
 
-// ============ Smoke test (ejecutar desde editor) ============
+// ============ Smoke tests (ejecutar desde editor) ============
 
 /**
- * Prueba mínima: pide stock de un item conocido.
- * Ejecuta esta función desde el editor de Apps Script para validar que
- * la API key funciona y la red es alcanzable.
- *
- * Cambia ITEM_PRUEBA por un código que sepas que existe en SPS0002.
+ * Prueba mínima: pide stock de RSA101592 (item conocido del PDF de Andre).
+ * Run → sapSmokeTest
  */
-function sapSmokeTest_() {
-  const ITEM_PRUEBA = "RSA101592"; // del PDF de Andre — ACEITE 15W40 SANY GLN
+function sapSmokeTest() {
+  const ITEM_PRUEBA = "RSA101592";
   console.log("→ Probando GET /items/" + ITEM_PRUEBA + "/stock");
   const r = sapObtenerStockItem_(ITEM_PRUEBA);
   console.log("✅ Respuesta:", JSON.stringify(r, null, 2));
@@ -197,13 +199,14 @@ function sapSmokeTest_() {
 }
 
 /**
- * Verifica el endpoint de cotizaciones (limit=1 para no traer todo).
+ * Verifica el endpoint de cotizaciones (limit=1).
+ * Run → sapSmokeTestCotizaciones
  */
-function sapSmokeTestCotizaciones_() {
+function sapSmokeTestCotizaciones() {
   console.log("→ Probando GET /quotations?status=open&limit=1");
   const r = sapListarCotizaciones_({ status: "open", limit: 1 });
   const total = r && r.meta ? r.meta.total : "?";
   const primera = r && r.data && r.data[0] ? r.data[0].docNum : "(ninguna)";
-  console.log("✅ Total cotizaciones abiertas: " + total + " · primera: " + primera);
+  console.log("✅ Total cotizaciones abiertas: " + total + " · primera DocNum: " + primera);
   return { total: total, primera: primera, sample: r };
 }

@@ -749,6 +749,249 @@
       </div>
     </section>
 
+    <!-- ======================== PEDIDOS (tickets) ======================== -->
+    <section x-show="vista==='pedidos' && !pedidos.detalleAbierto" x-transition.opacity class="space-y-5">
+      <div class="card p-5">
+        <div class="flex items-start justify-between mb-5 gap-3 flex-wrap">
+          <div>
+            <h3 class="section-title flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-red-600"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6"/><path d="M9 16h6"/></svg>
+              Pedidos del día
+            </h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Cotizaciones abiertas de SAP filtradas por almacén SP0002</p>
+          </div>
+          <button @click="sincronizarPedidos()" :disabled="pedidos.sincronizando" class="btn btn-soft btn-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :class="{'spin': pedidos.sincronizando}"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+            <span x-text="pedidos.sincronizando ? 'Sincronizando…' : 'Sincronizar con SAP'"></span>
+          </button>
+        </div>
+
+        <!-- Filtros -->
+        <div class="flex flex-wrap items-center gap-2 mb-4">
+          <span class="label mb-0">Filtrar:</span>
+          <template x-for="f in [
+            { id: 'TODOS', label: 'Todos' },
+            { id: 'DISPONIBLES', label: 'Disponibles' },
+            { id: 'MIOS', label: 'Mis pedidos' },
+            { id: 'EN_PREP', label: 'En preparación' },
+            { id: 'LISTO', label: 'Listos' },
+            { id: 'ENTREGADO', label: 'Entregados' }
+          ]" :key="f.id">
+            <button @click="pedidos.filtroEstado = f.id"
+                    class="btn btn-sm"
+                    :class="pedidos.filtroEstado === f.id ? 'btn-primary' : 'btn-soft'"
+                    x-text="f.label"></button>
+          </template>
+          <span class="text-sm text-slate-500 dark:text-slate-400 ml-auto">
+            <span class="font-bold" x-text="pedidosFiltrados().length"></span> pedidos
+          </span>
+        </div>
+
+        <!-- Grid de cuadritos -->
+        <div x-show="!pedidos.cargando && pedidosFiltrados().length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <template x-for="p in pedidosFiltrados()" :key="p.ticketId">
+            <button @click="abrirPreview(p)"
+                    class="text-left rounded-xl border-2 transition-all p-4 hover:shadow-md"
+                    :class="{
+                      'border-sky-300 bg-sky-50 dark:bg-sky-900/20': p.estado === 'ABIERTO',
+                      'border-amber-400 bg-amber-50 dark:bg-amber-900/20': p.estado === 'EN_PREP' && p.auxiliar === sesion.nombre,
+                      'border-slate-300 bg-white dark:bg-slate-800/50': p.estado === 'EN_PREP' && p.auxiliar !== sesion.nombre,
+                      'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20': p.estado === 'LISTO',
+                      'border-slate-200 bg-slate-50 dark:bg-slate-800/30 opacity-70': p.estado === 'ENTREGADO',
+                      'border-red-200 bg-red-50 dark:bg-red-900/20 opacity-60': p.estado === 'CANCELADO'
+                    }">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <div>
+                  <div class="font-bold mono text-lg" x-text="'OV-' + p.docNum"></div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400" x-text="p.cardName || p.cardCode"></div>
+                </div>
+                <span class="chip text-[10px]" :class="chipEstadoTicket(p.estado)" x-text="p.estado"></span>
+              </div>
+              <div class="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mb-3 min-h-[2em]" x-text="p.comentarios || 'Sin comentarios'"></div>
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-slate-500 dark:text-slate-400">
+                  <span class="font-bold" x-text="p.itemsRecogidos"></span> / <span x-text="p.itemsTotal"></span> items
+                </span>
+                <span x-show="p.estado === 'EN_PREP'" class="text-amber-700 dark:text-amber-400 font-semibold" x-text="'⏱ ' + (p.auxiliar || '?')"></span>
+                <span x-show="p.salesPerson" class="text-slate-500 dark:text-slate-400 text-[11px]" x-text="'👤 ' + p.salesPerson"></span>
+              </div>
+              <div x-show="p.itemsTotal > 0" class="mt-2">
+                <div class="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div class="h-full bg-amber-500" :style="'width:' + (p.itemsTotal ? Math.round(p.itemsRecogidos/p.itemsTotal*100) : 0) + '%'"></div>
+                </div>
+              </div>
+              <div x-show="p.estado === 'LISTO'" class="mt-3 flex justify-end">
+                <button @click.stop="marcarEntregado(p)" class="btn btn-primary btn-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                  Marcar entregado
+                </button>
+              </div>
+            </button>
+          </template>
+        </div>
+
+        <div x-show="pedidos.cargando" class="text-center py-12 text-slate-500 dark:text-slate-400">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin mx-auto mb-2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+          Cargando pedidos…
+        </div>
+
+        <div x-show="!pedidos.cargando && pedidosFiltrados().length === 0" class="text-center py-12">
+          <i data-lucide="inbox" class="w-14 h-14 mx-auto text-slate-300 dark:text-slate-600 mb-3"></i>
+          <p class="text-slate-600 dark:text-slate-300 font-semibold">Sin pedidos en este filtro</p>
+          <p class="hint mt-1">Probá "Sincronizar con SAP" si esperas pedidos nuevos</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== MODAL PREVIEW (ticket no tomado) ========== -->
+    <div x-show="pedidos.previewAbierto" @keydown.escape.window="cerrarPreview()" class="fixed inset-0 z-[105] flex items-center justify-center p-4" style="background: rgba(15,23,42,.55); backdrop-filter: blur(6px);" @click.self="cerrarPreview()">
+      <div class="card p-5 w-full max-w-2xl animate-scaleIn max-h-[85vh] flex flex-col">
+        <div class="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <h3 class="font-bold text-lg mono" x-text="pedidos.previewAbierto ? 'OV-' + pedidos.previewAbierto.docNum : ''"></h3>
+            <p class="text-sm text-slate-600 dark:text-slate-300 font-semibold" x-text="pedidos.previewAbierto?.cardName"></p>
+            <p class="text-xs text-slate-500 dark:text-slate-400" x-text="(pedidos.previewAbierto?.salesPerson || '') + ' · ' + (pedidos.previewAbierto?.docDate || '')"></p>
+          </div>
+          <button @click="cerrarPreview()" class="btn btn-ghost btn-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+        <div x-show="pedidos.previewAbierto?.comentarios" class="rounded-lg bg-slate-50 dark:bg-slate-800 p-3 mb-3 text-sm" x-text="pedidos.previewAbierto?.comentarios"></div>
+        <div class="flex-1 overflow-y-auto">
+          <div class="text-xs uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400 mb-2" x-text="'Items (' + (pedidos.previewLineas?.length || 0) + ')'"></div>
+          <div class="space-y-1">
+            <template x-for="l in pedidos.previewLineas" :key="l.lineNum">
+              <div class="flex items-center gap-3 text-sm py-1.5 border-b border-[color:var(--border)] last:border-0">
+                <span class="mono font-bold text-slate-700 dark:text-slate-200 min-w-[80px]" x-text="l.itemCode"></span>
+                <span class="flex-1 truncate" x-text="l.descripcion"></span>
+                <span class="mono font-bold text-amber-700 dark:text-amber-400" x-text="l.cantidadPedida + ' u'"></span>
+                <span class="mono text-xs text-slate-500" x-text="l.ubicacion || '—'"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+        <div class="mt-4 flex gap-2">
+          <button @click="cerrarPreview()" class="btn btn-ghost flex-1">Cerrar</button>
+          <button @click="tomarPedidoDesdePreview()" x-show="pedidos.previewAbierto?.estado === 'ABIERTO'" class="btn btn-primary flex-1 text-base !py-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
+            Yo tomo este pedido
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== VISTA DE TRABAJO (cuando tienes pedido tomado) ========== -->
+    <section x-show="vista==='pedidos' && pedidos.detalleAbierto" x-transition.opacity class="space-y-4">
+      <div class="card p-5">
+        <div class="flex items-start justify-between gap-3 mb-4 flex-wrap">
+          <div>
+            <div class="flex items-center gap-3">
+              <button @click="cerrarDetalleTrabajo()" class="btn btn-ghost btn-sm" title="Volver a la lista">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+              </button>
+              <h3 class="section-title mono" x-text="pedidos.detalleAbierto ? 'OV-' + pedidos.detalleAbierto.docNum : ''"></h3>
+            </div>
+            <p class="text-sm font-semibold text-slate-700 dark:text-slate-200 mt-1" x-text="pedidos.detalleAbierto?.cardName"></p>
+            <p class="text-xs text-slate-500 dark:text-slate-400" x-text="'👤 ' + (pedidos.detalleAbierto?.salesPerson || '—')"></p>
+          </div>
+          <div class="text-right">
+            <div class="text-3xl font-bold mono text-amber-600 dark:text-amber-400" x-text="formatoContador(pedidos.contador)"></div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">tiempo desde que tomaste</div>
+          </div>
+        </div>
+
+        <div x-show="pedidos.detalleAbierto?.comentarios" class="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 mb-4 text-sm">
+          <span class="font-bold">📋 Comentario:</span>
+          <span x-text="pedidos.detalleAbierto?.comentarios"></span>
+        </div>
+
+        <!-- Progreso -->
+        <div class="mb-4">
+          <div class="flex items-center justify-between text-sm mb-1">
+            <span class="font-semibold">
+              <span x-text="pedidos.lineas.filter(l => l.estado !== 'PENDIENTE').length"></span> de <span x-text="pedidos.lineas.length"></span> items resueltos
+            </span>
+            <span class="text-slate-500" x-text="progresoTicket() + '%'"></span>
+          </div>
+          <div class="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+            <div class="h-full bg-gradient-to-r from-amber-500 to-emerald-500 transition-all" :style="'width:' + progresoTicket() + '%'"></div>
+          </div>
+        </div>
+
+        <!-- Lista de items -->
+        <div class="space-y-2">
+          <template x-for="l in pedidos.lineas" :key="l.lineNum">
+            <div class="rounded-lg border p-3 transition-colors"
+                 :class="{
+                   'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800/50': l.estado === 'PENDIENTE',
+                   'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/30': l.estado === 'RECOGIDO',
+                   'border-red-400 bg-red-50 dark:bg-red-900/30': l.estado === 'FALTANTE'
+                 }">
+              <div class="flex items-start gap-3">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="mono font-bold text-base" x-text="l.itemCode"></span>
+                    <span x-show="l.estado === 'RECOGIDO'" class="chip chip-ok text-[10px]">✓ Recogido</span>
+                    <span x-show="l.estado === 'FALTANTE'" class="chip chip-err text-[10px]" x-text="'✗ ' + (l.motivoFalta || 'faltante')"></span>
+                  </div>
+                  <p class="text-sm text-slate-700 dark:text-slate-200 mt-0.5" x-text="l.descripcion"></p>
+                  <div class="flex items-center gap-3 text-xs mt-1">
+                    <span class="text-slate-500">Cantidad: <span class="font-bold text-slate-700 dark:text-slate-200" x-text="l.cantidadPedida"></span></span>
+                    <span class="text-slate-500">Ubicación: <span class="mono font-bold text-slate-700 dark:text-slate-200" x-text="l.ubicacion || '—'"></span></span>
+                  </div>
+                </div>
+                <div x-show="l.estado === 'PENDIENTE'" class="flex flex-col items-end gap-2">
+                  <input x-model.number="pedidos.cantidadTemp[l.lineNum]" type="number" min="0" :max="l.cantidadPedida"
+                         class="input !py-1.5 !px-2 mono w-20 text-center text-base">
+                  <div class="flex gap-1">
+                    <button @click="abrirModalFaltante(l)" class="btn btn-soft btn-sm !py-1 !px-2 text-red-600" title="Faltante">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                    <button @click="marcarRecogido(l)" class="btn btn-primary btn-sm !py-1 !px-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                      Recogido
+                    </button>
+                  </div>
+                </div>
+                <div x-show="l.estado === 'RECOGIDO'" class="text-right text-xs">
+                  <div class="font-bold text-emerald-700" x-text="l.cantidadRecogida + ' u'"></div>
+                  <div class="text-slate-500" x-text="l.recogidoEn"></div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- Acción final -->
+        <div class="mt-5 flex gap-2 justify-end">
+          <button @click="cerrarDetalleTrabajo()" class="btn btn-ghost">Cerrar (sin terminar)</button>
+          <button @click="marcarListo()" :disabled="lineasPendientes().length > 0" class="btn btn-primary text-base !py-3 !px-6">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            Marcar pedido LISTO
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== MODAL: motivo faltante ========== -->
+    <div x-show="pedidos.lineaParaFaltante" @keydown.escape.window="pedidos.lineaParaFaltante=null" class="fixed inset-0 z-[105] flex items-center justify-center p-4" style="background: rgba(15,23,42,.55); backdrop-filter: blur(6px);" @click.self="pedidos.lineaParaFaltante=null">
+      <div class="card p-5 w-full max-w-sm animate-scaleIn">
+        <h3 class="font-bold mb-2">Marcar como faltante</h3>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-3" x-text="pedidos.lineaParaFaltante?.descripcion"></p>
+        <label class="label">Motivo</label>
+        <select x-model="pedidos.motivoFaltante" class="input mb-4">
+          <option value="sin stock">Sin stock</option>
+          <option value="dañado">Dañado</option>
+          <option value="ubicación errónea">Ubicación errónea (no estaba donde dice)</option>
+          <option value="otro">Otro</option>
+        </select>
+        <div class="flex gap-2">
+          <button @click="pedidos.lineaParaFaltante=null" class="btn btn-ghost flex-1">Cancelar</button>
+          <button @click="confirmarFaltante()" class="btn btn-danger flex-1">Registrar faltante</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ======================== BUSCADOR ======================== -->
     <section x-show="vista==='buscador'" x-transition.opacity class="space-y-5">
       <div class="card p-5">
@@ -1715,6 +1958,26 @@
       // Modal de huérfanos (solo AGENTE)
       huerfanos: { abierto: false, lista: [], cargando: false },
 
+      // Pedidos (tickets de preparación)
+      pedidos: {
+        lista: [],
+        cargando: false,
+        sincronizando: false,
+        detalleAbierto: null,        // ticket en preparación (modal de trabajo)
+        lineas: [],
+        cargandoDetalle: false,
+        cantidadTemp: {},             // {lineNum: number} input temporal
+        motivoFaltante: '',
+        lineaParaFaltante: null,
+        contador: 0,                  // segundos del contador del ticket activo
+        timerHandle: null,
+        // Modal preview
+        previewAbierto: null,
+        previewLineas: [],
+        cargandoPreview: false,
+        filtroEstado: 'TODOS'
+      },
+
       // Carrito de captura masiva (sin cámara — solo HID scanner / tipeo)
       carrito: {
         items: [],
@@ -1751,6 +2014,7 @@
 
       navTodos: [
         { id: 'menu',       label: 'Menú',             icono: 'layout-dashboard', rol: 'AUXILIAR' },
+        { id: 'pedidos',    label: 'Pedidos',          icono: 'clipboard-list',   rol: 'AUXILIAR' },
         { id: 'buscador',   label: 'Buscador',         icono: 'search',           rol: 'COMERCIAL' },
         { id: 'individual', label: 'Ingreso Individual', icono: 'package-plus',   rol: 'AUXILIAR' },
         { id: 'escaneo',    label: 'Captura Masiva',   icono: 'list-plus',        rol: 'AUXILIAR' },
@@ -2140,6 +2404,7 @@
         if (v === 'ejecucion') this.cargarPendientesSap();
         if (v === 'masivo') this.cargarDocumentosMasivo();
         if (v === 'usuarios') this.cargarUsuarios();
+        if (v === 'pedidos') this.cargarPedidos();
         if (v === 'escaneo' && !this.carrito.responsable) {
           this.carrito.responsable = this.sesion.nombre || '';
         }
@@ -2590,6 +2855,212 @@
         return [...s].sort();
       },
 
+      // ======================= PEDIDOS (tickets) =======================
+      cargarPedidos() {
+        this.pedidos.cargando = true;
+        this.rpc('obtenerTickets', { dias: 2 }).then(res => {
+          this.pedidos.lista = (res && res.tickets) || [];
+          this.pedidos.cargando = false;
+        }).catch(() => { this.pedidos.cargando = false; this.toast('Error al cargar pedidos', 'err'); });
+      },
+
+      sincronizarPedidos() {
+        if (this.pedidos.sincronizando) return;
+        this.pedidos.sincronizando = true;
+        this.toast('Consultando SAP…', 'info');
+        this.rpc('sincronizarTicketsDesdeSap').then(res => {
+          this.pedidos.sincronizando = false;
+          if (res && res.exito) {
+            this.toast('Sync OK: +' + res.creados + ' nuevos, ' + res.actualizados + ' actualizados', 'ok');
+            this.cargarPedidos();
+          } else {
+            this.toast(res && res.mensaje || 'Error sync', 'err');
+          }
+        }).catch(() => { this.pedidos.sincronizando = false; this.toast('Error de red', 'err'); });
+      },
+
+      pedidosFiltrados() {
+        const f = this.pedidos.filtroEstado;
+        if (f === 'TODOS') return this.pedidos.lista;
+        if (f === 'DISPONIBLES') return this.pedidos.lista.filter(p => p.estado === 'ABIERTO');
+        if (f === 'MIOS') return this.pedidos.lista.filter(p => p.estado === 'EN_PREP' && p.auxiliar === this.sesion.nombre);
+        return this.pedidos.lista.filter(p => p.estado === f);
+      },
+
+      abrirPreview(ticket) {
+        // Si yo lo tomé y está EN_PREP, abrir vista de trabajo directo
+        if (ticket.estado === 'EN_PREP' && ticket.auxiliar === this.sesion.nombre) {
+          this.abrirDetalleTrabajo(ticket);
+          return;
+        }
+        this.pedidos.previewAbierto = ticket;
+        this.pedidos.previewLineas = [];
+        this.pedidos.cargandoPreview = true;
+        this.rpc('obtenerTicketDetalle', ticket.ticketId).then(res => {
+          this.pedidos.cargandoPreview = false;
+          if (res && res.exito) {
+            this.pedidos.previewLineas = res.lineas || [];
+          } else {
+            this.toast(res && res.mensaje || 'Error', 'err');
+          }
+        }).catch(() => { this.pedidos.cargandoPreview = false; });
+      },
+
+      cerrarPreview() { this.pedidos.previewAbierto = null; this.pedidos.previewLineas = []; },
+
+      tomarPedidoDesdePreview() {
+        const t = this.pedidos.previewAbierto;
+        if (!t) return;
+        this.rpc('tomarTicket', t.ticketId).then(res => {
+          if (res && res.exito) {
+            this.toast('Pedido tomado · contador iniciado', 'ok');
+            this.cerrarPreview();
+            this.cargarPedidos();
+            // Re-cargar detalle y abrir vista de trabajo
+            setTimeout(() => {
+              const actualizado = this.pedidos.lista.find(p => p.ticketId === t.ticketId);
+              if (actualizado) this.abrirDetalleTrabajo(actualizado);
+            }, 600);
+          } else {
+            this.toast(res && res.mensaje || 'Error', 'err');
+          }
+        }).catch(() => this.toast('Error de red', 'err'));
+      },
+
+      abrirDetalleTrabajo(ticket) {
+        this.pedidos.detalleAbierto = ticket;
+        this.pedidos.lineas = [];
+        this.pedidos.cargandoDetalle = true;
+        this.pedidos.cantidadTemp = {};
+        this.rpc('obtenerTicketDetalle', ticket.ticketId).then(res => {
+          this.pedidos.cargandoDetalle = false;
+          if (res && res.exito) {
+            this.pedidos.lineas = res.lineas || [];
+            this.pedidos.detalleAbierto = res.ticket;
+            // Inicializa cantidades temporales con la cantidad pedida
+            this.pedidos.lineas.forEach(l => {
+              this.pedidos.cantidadTemp[l.lineNum] = l.cantidadPedida;
+            });
+            this._iniciarContadorPedido();
+          }
+        }).catch(() => { this.pedidos.cargandoDetalle = false; });
+      },
+
+      cerrarDetalleTrabajo() {
+        this._detenerContador();
+        this.pedidos.detalleAbierto = null;
+        this.pedidos.lineas = [];
+        this.cargarPedidos();
+      },
+
+      _iniciarContadorPedido() {
+        this._detenerContador();
+        const t = this.pedidos.detalleAbierto;
+        if (!t || !t.fechaTomadoMs) return;
+        const tick = () => {
+          this.pedidos.contador = Math.floor((Date.now() - t.fechaTomadoMs) / 1000);
+        };
+        tick();
+        this.pedidos.timerHandle = setInterval(tick, 1000);
+      },
+
+      _detenerContador() {
+        if (this.pedidos.timerHandle) {
+          clearInterval(this.pedidos.timerHandle);
+          this.pedidos.timerHandle = null;
+        }
+      },
+
+      formatoContador(seg) {
+        const s = Number(seg || 0);
+        const m = Math.floor(s / 60);
+        const r = s % 60;
+        return (m < 10 ? '0' : '') + m + ':' + (r < 10 ? '0' : '') + r;
+      },
+
+      lineasPendientes() {
+        return (this.pedidos.lineas || []).filter(l => l.estado === 'PENDIENTE');
+      },
+
+      progresoTicket() {
+        const total = (this.pedidos.lineas || []).length;
+        if (!total) return 0;
+        const resueltas = this.pedidos.lineas.filter(l => l.estado !== 'PENDIENTE').length;
+        return Math.round((resueltas / total) * 100);
+      },
+
+      marcarRecogido(linea) {
+        const cant = Number(this.pedidos.cantidadTemp[linea.lineNum] || 0);
+        if (cant <= 0) { this.toast('Cantidad inválida', 'warn'); return; }
+        this.rpc('marcarItemRecogido', this.pedidos.detalleAbierto.ticketId, linea.lineNum, { cantidad: cant, faltante: false }).then(res => {
+          if (res && res.exito) {
+            this.toast('✓ ' + linea.descripcion + ' · mov: ' + (res.movimientoId || ''), 'ok');
+            // Refresca detalle
+            this.abrirDetalleTrabajo(this.pedidos.detalleAbierto);
+          } else {
+            this.toast(res && res.mensaje || 'Error', 'err');
+          }
+        }).catch(() => this.toast('Error de red', 'err'));
+      },
+
+      abrirModalFaltante(linea) {
+        this.pedidos.lineaParaFaltante = linea;
+        this.pedidos.motivoFaltante = 'sin stock';
+      },
+
+      confirmarFaltante() {
+        const linea = this.pedidos.lineaParaFaltante;
+        if (!linea) return;
+        const motivo = this.pedidos.motivoFaltante || 'sin stock';
+        this.rpc('marcarItemRecogido', this.pedidos.detalleAbierto.ticketId, linea.lineNum, { cantidad: 0, faltante: true, motivo: motivo }).then(res => {
+          if (res && res.exito) {
+            this.toast('Faltante registrado: ' + motivo, 'warn');
+            this.pedidos.lineaParaFaltante = null;
+            this.abrirDetalleTrabajo(this.pedidos.detalleAbierto);
+          } else {
+            this.toast(res && res.mensaje || 'Error', 'err');
+          }
+        }).catch(() => this.toast('Error de red', 'err'));
+      },
+
+      marcarListo() {
+        const t = this.pedidos.detalleAbierto;
+        if (!t) return;
+        const pend = this.lineasPendientes();
+        if (pend.length > 0) { this.toast('Faltan ' + pend.length + ' items por resolver', 'warn'); return; }
+        if (!confirm('¿Marcar pedido como LISTO para entregar?')) return;
+        this.rpc('marcarTicketListo', t.ticketId).then(res => {
+          if (res && res.exito) {
+            this.toast('Pedido LISTO · tiempo: ' + this.formatoContador(res.tiempoPrep), 'ok');
+            this.cerrarDetalleTrabajo();
+          } else {
+            this.toast(res && res.mensaje || 'Error', 'err');
+          }
+        }).catch(() => this.toast('Error de red', 'err'));
+      },
+
+      marcarEntregado(ticket) {
+        if (!confirm('¿Confirmas que el cliente retiró el pedido ' + ticket.docNum + '?')) return;
+        this.rpc('marcarTicketEntregado', ticket.ticketId).then(res => {
+          if (res && res.exito) {
+            this.toast('Entregado al cliente', 'ok');
+            this.cargarPedidos();
+          } else {
+            this.toast(res && res.mensaje || 'Error', 'err');
+          }
+        }).catch(() => this.toast('Error de red', 'err'));
+      },
+
+      chipEstadoTicket(estado) {
+        return {
+          'ABIERTO': 'chip-info',
+          'EN_PREP': 'chip-warn',
+          'LISTO': 'chip-ok',
+          'ENTREGADO': 'chip-mute',
+          'CANCELADO': 'chip-err'
+        }[estado] || 'chip-mute';
+      },
+
       // ======================= CARRITO (captura masiva) =======================
       _carritoAgregarPorCodigo(codigo) {
         // Si ya está, incrementa
@@ -2704,6 +3175,7 @@
         const baseTodos = [
           { titulo: 'Ir al Menú',            subtitulo: 'Dashboard principal',          icono: 'layout-dashboard', atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('menu') },
           { titulo: 'Buscador',              subtitulo: 'Consultar DATA_SAP',           icono: 'search',           atajo: '/', rol: 'AUXILIAR', accion: () => this.navegar('buscador') },
+          { titulo: 'Pedidos',               subtitulo: 'Tickets de preparación desde SAP', icono: 'clipboard-list', atajo: '', rol: 'AUXILIAR', accion: () => this.navegar('pedidos') },
           { titulo: 'Ingreso individual',    subtitulo: 'Registrar un movimiento',      icono: 'package-plus',     atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('individual') },
           { titulo: 'Captura masiva',        subtitulo: 'Carrito de movimientos por scanner HID o tipeo', icono: 'list-plus',  atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('escaneo') },
           { titulo: 'Ingreso masivo',        subtitulo: 'Preparar trabajo desde documento', icono: 'layers',       atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('masivo') },
