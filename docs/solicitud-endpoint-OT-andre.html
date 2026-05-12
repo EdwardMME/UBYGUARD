@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>UBYGUARD · Solicitud de endpoint de Órdenes de Trabajo</title>
+<title>UBYGUARD · Solicitudes de API SAP</title>
 <style>
   @page { size: Letter; margin: 18mm 16mm 18mm 16mm; }
   * { box-sizing: border-box; }
@@ -125,19 +125,30 @@
 </footer>
 
 <div class="cover">
-  <span class="badge">Solicitud técnica</span>
-  <h1>Endpoint de Órdenes de Trabajo (OT) para UBYGUARD</h1>
-  <p class="small">Extensión de la API SAP B1 publicada por Andre — paridad con <code>/api/ubyguard/quotations</code></p>
+  <span class="badge">Solicitudes técnicas</span>
+  <h1>Extensiones de la API SAP para UBYGUARD</h1>
+  <p class="small">Dos pedidos: (1) endpoint de Órdenes de Trabajo · (2) sync masivo de inventario para no pegar SAP por ítem</p>
 </div>
 
 <table class="meta-table">
   <tr><td>Para</td><td>Andre Lopez · API SAP B1</td></tr>
   <tr><td>De</td><td>Eduardo Mejía · Distribuidora Platino (UBYGUARD)</td></tr>
   <tr><td>Fecha</td><td>12 / mayo / 2026</td></tr>
-  <tr><td>Asunto</td><td>Nuevo endpoint <code>GET /api/ubyguard/work-orders</code></td></tr>
-  <tr><td>Prioridad</td><td>Media — bloquea visibilidad de OT en módulo Pedidos</td></tr>
+  <tr><td>Asunto</td><td>
+    1) <code>GET /api/ubyguard/work-orders</code> · OT abiertas<br>
+    2) Confirmar / habilitar <code>GET /api/ubyguard/items</code> · sync masivo
+  </td></tr>
+  <tr><td>Prioridad</td><td>Media · bloquea visibilidad de OT + fresca de inventario en pickup</td></tr>
   <tr><td>API base actual</td><td><code>https://sap-api.eugeniachat.ai</code></td></tr>
 </table>
+
+<div class="callout info">
+  <b>TL;DR · dos pedidos en un mismo documento:</b><br>
+  <b>A)</b> Publicar <code>GET /api/ubyguard/work-orders</code> con shape paralelo a <code>quotations</code> (secciones 1–8).<br>
+  <b>B)</b> Confirmar / habilitar <code>GET /api/ubyguard/items</code> para sync diario masivo de DATA_SAP. UBYGUARD ya lo tiene cliente-armado pero nunca se ha probado en producción (sección 9).
+</div>
+
+<h2 style="border-top: 3pt solid #b91c1c; padding-top: 10pt;">PARTE A · Endpoint de Órdenes de Trabajo</h2>
 
 <h2>1 · Contexto</h2>
 
@@ -309,20 +320,131 @@ Respuesta esperada (200):
   data: [ 1 OT con sus líneas ]
   meta.total: N</pre>
 
-<h2>8 · Estado del lado de UBYGUARD</h2>
+<div class="pagebreak"></div>
 
-<p>Ya está dejado <b>armado y commited en el repo</b>:</p>
+<h2 style="border-top: 3pt solid #b91c1c; padding-top: 10pt;">PARTE B · Sync masivo de inventario (DATA_SAP)</h2>
+
+<h2>8 · Contexto</h2>
+
+<p>UBYGUARD mantiene una hoja local <b>DATA_SAP</b> (~15.600 ítems) que sirve como índice O(1) para búsquedas: número de parte, código, descripción, ubicación, stock, referencias cruzadas. Esa hoja se carga manualmente desde el ERP cada cierto tiempo, lo que produce dos problemas:</p>
 
 <ul>
-  <li><code>sap_client.gs</code> · cliente <code>sapListarOT_(filtros)</code> apuntando a <code>/api/ubyguard/work-orders</code>.</li>
-  <li><code>tickets.gs</code> · función <code>sincronizarOTDesdeSap(opts)</code> con manejo de error amigable mientras el endpoint no exista (404).</li>
-  <li>Frontend · botón "Sincronizar OT" en la vista Pedidos del agente, con feedback visual cuando el endpoint todavía no está publicado.</li>
+  <li><b>Inventario desincronizado.</b> Cuando el auxiliar abre un pedido en pickup, ve el stock de hace X días — no el de SAP <em>ahora</em>.</li>
+  <li><b>Tentación de pegarle a SAP por línea.</b> Si quisiéramos stock real, tendríamos que llamar <code>/items/{itemCode}/stock</code> por cada línea de cada pedido — eso son ~50 llamadas por pedido × decenas de pedidos al día. Mata la API y el cuota de Apps Script.</li>
+</ul>
+
+<p>La solución limpia es un <b>sync diario masivo</b> que refresque DATA_SAP de un golpe (o incremental por <code>modifiedSince</code>). Ya está documentado el endpoint <code>GET /api/ubyguard/items</code> y UBYGUARD tiene el cliente HTTP armado (<code>sapListarItems_</code>), pero nunca se ha confirmado que esté publicado ni se ha hecho un smoke test contra producción.</p>
+
+<div class="callout">
+  <b>El pedido concreto:</b> confirmar que <code>/api/ubyguard/items</code> está operativo con el shape de abajo, o ajustarlo si difiere. Si todavía no está implementado, este documento sirve también como spec.
+</div>
+
+<h2>9 · Endpoint propuesto</h2>
+
+<table class="params">
+  <tr><th>Atributo</th><th>Valor</th></tr>
+  <tr><td>Método</td><td class="mono">GET</td></tr>
+  <tr><td>Path</td><td class="mono">/api/ubyguard/items</td></tr>
+  <tr><td>Autenticación</td><td><code>X-API-Key</code> (misma key de los demás endpoints)</td></tr>
+  <tr><td>Content-Type</td><td><code>application/json</code></td></tr>
+  <tr><td>Paginación</td><td><code>limit</code> + <code>offset</code> (recomendado 500 por página; ~32 páginas para 15.6k ítems)</td></tr>
+</table>
+
+<h3>Query string</h3>
+<table class="params">
+  <tr><th>Parámetro</th><th>Tipo</th><th>Default</th><th>Descripción</th></tr>
+  <tr><td class="mono">warehouse</td><td>string</td><td><code>SPS0002</code></td><td>Almacén del que se piden los stocks. Si no se pasa, asume SPS0002.</td></tr>
+  <tr><td class="mono">limit</td><td>int</td><td><code>500</code></td><td>Items por página. Cap recomendado: 1000.</td></tr>
+  <tr><td class="mono">offset</td><td>int</td><td><code>0</code></td><td>Offset para paginación.</td></tr>
+  <tr><td class="mono">modifiedSince</td><td>YYYY-MM-DD<br>o ISO8601</td><td>—</td><td>Trae sólo ítems modificados desde esa fecha (delta sync). Si Andre puede exponer <code>UpdateDate</code> de OITM/OITW, perfecto.</td></tr>
+  <tr><td class="mono">activeOnly</td><td>bool</td><td><code>true</code></td><td>Excluye ítems inactivos (<code>OITM.frozenFor='Y'</code>).</td></tr>
+</table>
+
+<h3>Shape JSON de respuesta</h3>
+
+<pre>{
+  <span class="json-key">"data"</span>: [
+    {
+      <span class="json-key">"itemCode"</span>:        <span class="json-str">"RSA101592"</span>,
+      <span class="json-key">"itemName"</span>:        <span class="json-str">"FILTRO DE ACEITE BHL75"</span>,
+      <span class="json-key">"partNumber"</span>:      <span class="json-str">"60318575"</span>,
+      <span class="json-key">"warehouseCode"</span>:   <span class="json-str">"SPS0002"</span>,
+      <span class="json-key">"onHand"</span>:          <span class="json-num">19</span>,
+      <span class="json-key">"committed"</span>:       <span class="json-num">3</span>,
+      <span class="json-key">"ordered"</span>:         <span class="json-num">0</span>,
+      <span class="json-key">"available"</span>:       <span class="json-num">16</span>,
+      <span class="json-key">"binCode"</span>:         <span class="json-str">"N1-B1-C1"</span>,
+      <span class="json-key">"itemGroup"</span>:       <span class="json-str">"Filtros"</span>,
+      <span class="json-key">"manufacturer"</span>:    <span class="json-str">"SANY"</span>,
+      <span class="json-key">"active"</span>:          <span class="json-num">true</span>,
+      <span class="json-key">"updatedAt"</span>:       <span class="json-str">"2026-05-11T14:23:00Z"</span>
+    }
+  ],
+  <span class="json-key">"meta"</span>: {
+    <span class="json-key">"total"</span>:     <span class="json-num">15623</span>,
+    <span class="json-key">"limit"</span>:     <span class="json-num">500</span>,
+    <span class="json-key">"offset"</span>:    <span class="json-num">0</span>,
+    <span class="json-key">"hasMore"</span>:   <span class="json-num">true</span>,
+    <span class="json-key">"warehouse"</span>: <span class="json-str">"SPS0002"</span>
+  }
+}</pre>
+
+<div class="callout ok">
+  <b>Campos mínimos críticos:</b> <code>itemCode</code>, <code>itemName</code>, <code>partNumber</code>, <code>onHand</code>, <code>binCode</code>. El resto es deseable. Si algún ítem no tiene <code>partNumber</code>, déjalo en string vacío (no null).
+</div>
+
+<h2>10 · Estrategia de sincronización del lado UBYGUARD</h2>
+
+<p>Lo que ya queda armado en código apenas Andre confirme el endpoint:</p>
+
+<ul>
+  <li><b>Trigger horario nocturno</b> (Apps Script) que llama paginando hasta <code>hasMore=false</code> y reescribe DATA_SAP.</li>
+  <li><b>Botón manual en el menú de agente</b> "Refrescar DATA_SAP desde SAP" para forzar el sync cuando se necesita.</li>
+  <li><b>Delta sync</b> usando <code>modifiedSince = lastSyncTimestamp</code> en cada llamada — sólo actualiza los ítems que cambiaron desde la última corrida. Mucho más eficiente que full sync de 15k ítems.</li>
+  <li><b>Invalidación del índice O(1)</b> después de escribir (<code>CACHE_KEYS.SAP_INDEX</code>) para que las búsquedas siguientes reconstruyan con la data fresca.</li>
+</ul>
+
+<h3>Smoke test sugerido</h3>
+
+<pre>GET /api/ubyguard/items?warehouse=SPS0002&amp;limit=1
+Headers:
+  X-API-Key: &lt;la misma de quotations&gt;
+
+Respuesta esperada (200):
+  data: [ 1 ítem con todos los campos del shape ]
+  meta.total: ≈ 15600
+  meta.hasMore: true</pre>
+
+<h2>11 · Costo estimado del sync (Andre)</h2>
+
+<table class="params">
+  <tr><th>Concepto</th><th>Valor</th></tr>
+  <tr><td>Llamadas por sync completo</td><td>~32 (15.6k ítems ÷ 500)</td></tr>
+  <tr><td>Llamadas por sync delta</td><td>1–3 (sólo los modificados del día)</td></tr>
+  <tr><td>Frecuencia esperada</td><td>1× diario nocturno + on-demand del agente</td></tr>
+  <tr><td>Carga vs hoy</td><td>Mucho menor que pegar <code>/items/{x}/stock</code> por línea de pedido</td></tr>
+</table>
+
+<div class="pagebreak"></div>
+
+<h2 style="border-top: 3pt solid #b91c1c; padding-top: 10pt;">CIERRE</h2>
+
+<h2>12 · Estado del lado de UBYGUARD</h2>
+
+<p>Ya está dejado <b>armado y commited en el repo</b> (para ambas partes A y B):</p>
+
+<ul>
+  <li><code>sap_client.gs</code> · cliente <code>sapListarOT_(filtros)</code> → <code>/api/ubyguard/work-orders</code>.</li>
+  <li><code>sap_client.gs</code> · cliente <code>sapListarItems_(filtros)</code> → <code>/api/ubyguard/items</code>, con paginación y <code>modifiedSince</code>.</li>
+  <li><code>tickets.gs</code> · función <code>sincronizarOTDesdeSap(opts)</code> con manejo amigable de 404 mientras el endpoint no exista.</li>
+  <li><code>data_sync.gs</code> · función <code>sincronizarDataSapDesdeSap(opts)</code> que pagina, escribe DATA_SAP en batch y reinvalida el índice O(1).</li>
+  <li>Frontend · botones "Sync OT" y "Refrescar DATA_SAP desde SAP" con feedback visual.</li>
   <li>Schema · UBYGUARD soporta mezclar OT y OV en las mismas hojas (IDs prefijados con <code>OT-</code> para evitar colisión).</li>
 </ul>
 
-<p>Cuando publiques el endpoint, no se necesita despliegue nuevo: arranca a funcionar en el siguiente pull del agente.</p>
+<p>Cuando publiques los endpoints, no se necesita despliegue nuevo: arrancan a funcionar en el siguiente pull del agente.</p>
 
-<h2>9 · Contacto</h2>
+<h2>13 · Contacto</h2>
 
 <table class="meta-table">
   <tr><td>Solicitante</td><td>Eduardo Mejía</td></tr>

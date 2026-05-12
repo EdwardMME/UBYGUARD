@@ -2589,6 +2589,24 @@
         this.cargarIndicadoresPickup();
       },
 
+      refrescarDataSapApi() {
+        if (this.refrescandoIndice) return;
+        if (!confirm('¿Refrescar DATA_SAP desde la API de Andre?\n\nEsto pagina los ~15k ítems y reescribe la hoja. Puede tardar 1–2 minutos. Solo correr cuando se necesita.')) return;
+        this.refrescandoIndice = true;
+        this.toast('Pulling DATA_SAP desde SAP…', 'info');
+        this.rpc('refrescarDataSapDesdeApi').then(res => {
+          this.refrescandoIndice = false;
+          if (res && res.exito) {
+            this.toast('DATA_SAP refrescado · ' + (res.traidos || 0) + ' ítems en ' + Math.round((res.ms || 0) / 1000) + 's', 'ok');
+            this.refrescarIndice();
+          } else if (res && res.pendienteAndre) {
+            this.toast('Endpoint /items pendiente de Andre — ver docs/solicitudes-api-andre.pdf', 'warn');
+          } else {
+            this.toast(res && res.mensaje || 'Error', 'err');
+          }
+        }).catch(() => { this.refrescandoIndice = false; this.toast('Error de red', 'err'); });
+      },
+
       refrescarIndice() {
         if (this.refrescandoIndice) return;
         this.refrescandoIndice = true;
@@ -3601,6 +3619,7 @@
           { titulo: 'Gestionar usuarios',    subtitulo: 'Crear, editar, resetear PINs', icono: 'users-round',      atajo: '',  rol: 'AGENTE',   accion: () => this.navegar('usuarios') },
           { titulo: 'Refrescar dashboard',   subtitulo: 'Recalcular métricas',          icono: 'refresh-cw',       atajo: '',  rol: 'AUXILIAR', accion: () => this.refrescarResumen(true) },
           { titulo: 'Refrescar índice SAP',  subtitulo: 'Reconstruir desde DATA_SAP',   icono: 'database',         atajo: '',  rol: 'AUXILIAR', accion: () => this.refrescarIndice() },
+          { titulo: 'Refrescar DATA_SAP desde SAP', subtitulo: 'Pull masivo (endpoint Andre · puede tardar)', icono: 'cloud-download', atajo: '', rol: 'AGENTE', accion: () => this.refrescarDataSapApi() },
           { titulo: 'Cambiar mi PIN',        subtitulo: 'Actualizar credencial',        icono: 'key-round',        atajo: '',  rol: 'AUXILIAR', accion: () => this.abrirCambiarPin() },
           { titulo: 'Cerrar sesión',         subtitulo: 'Salir de la app',              icono: 'log-out',          atajo: '',  rol: 'AUXILIAR', accion: () => this.cerrarSesion() },
           { titulo: this.dark ? 'Modo claro' : 'Modo oscuro', subtitulo: 'Cambiar apariencia', icono: this.dark ? 'sun' : 'moon', atajo: '', rol: 'AUXILIAR', accion: () => this.toggleTema() }
