@@ -161,12 +161,14 @@ const USUARIOS_COLS = {
 const SESION_DURACION_MS = 24 * 60 * 60 * 1000; // 24 horas, se renueva en cada RPC
 
 // Usuario bootstrap: se crea automáticamente al primer login si no existe.
+// El PIN NO va en código (repo público). Se lee desde Script Properties.
+// Para configurarlo la primera vez: ejecutar configurarBootstrap_ desde el editor.
 const USUARIO_BOOTSTRAP = {
   usuario: "edward",
   nombre: "Edward",
-  pin: "5991",
   rol: "AGENTE"
 };
+const BOOTSTRAP_PROP_KEY = "UBY_BOOTSTRAP_PIN";
 
 // Índices 0-based en arrays getValues() para DATA_SAP
 const SAP_COL = {
@@ -282,4 +284,44 @@ function normalizarTexto(valor) {
 
 function normalizarMayus(valor) {
   return normalizarTexto(valor).toUpperCase();
+}
+
+/**
+ * Anti formula-injection para escrituras a Google Sheets.
+ *
+ * Si el valor (tras quitar caracteres invisibles iniciales: BOM, NBSP, espacios
+ * Unicode, tabs, CR, LF) comienza con un carácter que Sheets interpreta como
+ * fórmula, le prepende un apóstrofo. El apóstrofo no se muestra en la celda
+ * pero impide la ejecución de la fórmula.
+ *
+ * Vectores cubiertos: = + - @ \t \r \n
+ * Strip previo: BOM (﻿), NBSP ( ), espacios Unicode ( -​)
+ */
+function escaparFormula_(valor) {
+  if (valor == null) return "";
+  if (typeof valor !== "string") return valor; // números, fechas, bools pasan tal cual
+  if (valor.length === 0) return valor;
+  // Strip de invisibles iniciales antes de chequear
+  const limpio = valor.replace(/^[﻿  -​\s]+/, "");
+  if (limpio.length === 0) return valor;
+  const first = limpio.charAt(0);
+  if (first === "=" || first === "+" || first === "-" || first === "@") {
+    return "'" + valor;
+  }
+  return valor;
+}
+
+/**
+ * Comparación de strings en tiempo constante. Evita timing attacks al verificar
+ * firmas HMAC. Si las longitudes difieren retorna false inmediatamente (no leak
+ * sensible aquí). Si son iguales, recorre todos los bytes acumulando diferencias.
+ */
+function compararConstanteTime_(a, b) {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
 }

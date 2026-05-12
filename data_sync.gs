@@ -193,12 +193,12 @@ function _upsertDataSap_(sheet, items) {
  */
 function _itemAFila_(it) {
   const fila = new Array(8).fill("");
-  fila[SAP_COL.ID] = it.docEntry || it.itemCode || "";
-  fila[SAP_COL.NUMERO_PARTE] = it.partNumber || "";
-  fila[SAP_COL.CODIGO] = it.itemCode || "";
-  fila[SAP_COL.DESCRIPCION] = it.itemName || "";
+  fila[SAP_COL.ID] = escaparFormula_(String(it.docEntry || it.itemCode || ""));
+  fila[SAP_COL.NUMERO_PARTE] = escaparFormula_(it.partNumber || "");
+  fila[SAP_COL.CODIGO] = escaparFormula_(it.itemCode || "");
+  fila[SAP_COL.DESCRIPCION] = escaparFormula_(it.itemName || "");
   fila[SAP_COL.EXISTENCIA] = Number(it.onHand != null ? it.onHand : (it.available || 0));
-  fila[SAP_COL.UBICACION] = it.binCode || "";
+  fila[SAP_COL.UBICACION] = escaparFormula_(it.binCode || "");
   return fila;
 }
 

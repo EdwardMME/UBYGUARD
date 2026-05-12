@@ -33,11 +33,19 @@ function asegurarHojaUsuarios_() {
 
 function sembrarUsuarioBootstrap_(sheet) {
   const b = USUARIO_BOOTSTRAP;
+  const pinFromProps = PropertiesService.getScriptProperties().getProperty(BOOTSTRAP_PROP_KEY);
+  if (!pinFromProps || !/^\d{4}$/.test(pinFromProps)) {
+    console.warn(
+      "[UBY] Bootstrap NO sembrado: falta Script Property '" + BOOTSTRAP_PROP_KEY + "' (4 dígitos). " +
+      "Ejecuta configurarBootstrap_ desde el editor para configurarlo."
+    );
+    return false;
+  }
   const salt = generarSalt_();
-  const hash = hashearPin_(b.pin, salt);
+  const hash = hashearPin_(pinFromProps, salt);
   sheet.appendRow([
-    b.usuario,
-    b.nombre,
+    escaparFormula_(b.usuario),
+    escaparFormula_(b.nombre),
     hash,
     salt,
     b.rol,
@@ -46,6 +54,32 @@ function sembrarUsuarioBootstrap_(sheet) {
     new Date(),
     "sistema"
   ]);
+  return true;
+}
+
+/**
+ * Función admin · configura el PIN del usuario bootstrap.
+ * EJECUTAR SOLO DESDE EL EDITOR DE APPS SCRIPT (no via google.script.run).
+ * El underscore final la hace privada — no callable desde la webapp.
+ *
+ * USO:
+ *   1. Edita la línea PIN_TEMPORAL más abajo y pega un PIN de 4 dígitos
+ *   2. Run → configurarBootstrap_
+ *   3. Borra el literal (volvé a poner "") y Ctrl+S
+ */
+function configurarBootstrap_() {
+  const PIN_TEMPORAL = ""; // ← pega aquí el PIN, corre, y bórralo
+
+  if (!PIN_TEMPORAL || !/^\d{4}$/.test(PIN_TEMPORAL)) {
+    throw new Error(
+      "Edita configurarBootstrap_ y pega un PIN de 4 dígitos en PIN_TEMPORAL antes de ejecutar."
+    );
+  }
+  PropertiesService.getScriptProperties().setProperty(BOOTSTRAP_PROP_KEY, PIN_TEMPORAL);
+  console.log(
+    "✅ PIN bootstrap configurado en Script Properties. Borra el literal PIN_TEMPORAL de esta función antes de pushear de nuevo."
+  );
+  return "OK — borra el literal antes de pushear.";
 }
 
 function buscarFilaUsuario_(sheet, usuario) {
@@ -127,7 +161,17 @@ function crearUsuario(token, datos) {
       }
       const salt = generarSalt_();
       const hash = hashearPin_(p.valor, salt);
-      sheet.appendRow([u, n, hash, salt, rol, true, "", new Date(), sesion.usuario]);
+      sheet.appendRow([
+        escaparFormula_(u),
+        escaparFormula_(n),
+        hash,
+        salt,
+        rol,
+        true,
+        "",
+        new Date(),
+        escaparFormula_(sesion.usuario)
+      ]);
       return { exito: true, mensaje: "Usuario creado" };
     } finally {
       try { lock.releaseLock(); } catch (e) {}
@@ -145,7 +189,7 @@ function actualizarUsuario(token, usuarioTarget, cambios) {
     if (cambios.nombre !== undefined) {
       const n = normalizarTexto(cambios.nombre);
       if (!n || n.length > 60) return { exito: false, mensaje: "Nombre inválido" };
-      sheet.getRange(fila.rowNumber, USUARIOS_COLS.NOMBRE).setValue(n);
+      sheet.getRange(fila.rowNumber, USUARIOS_COLS.NOMBRE).setValue(escaparFormula_(n));
     }
     if (cambios.rol !== undefined) {
       const r = normalizarTexto(cambios.rol).toUpperCase();

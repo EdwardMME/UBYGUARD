@@ -224,15 +224,15 @@ function crearTicket_(ticketsSheet, lineasSheet, ticketId, q, lineas) {
   const lineasParaPrep = lineas.filter(function(l) { return esLineaInventario_(l.itemCode); });
 
   const fila = new Array(TICKETS_HEADERS.length).fill("");
-  fila[TICKETS_COLS.TICKET_ID - 1] = ticketId;
-  fila[TICKETS_COLS.DOC_NUM - 1] = q.docNum;
+  fila[TICKETS_COLS.TICKET_ID - 1] = escaparFormula_(ticketId);
+  fila[TICKETS_COLS.DOC_NUM - 1] = escaparFormula_(q.docNum);
   fila[TICKETS_COLS.DOC_ENTRY - 1] = q.docEntry || "";
   fila[TICKETS_COLS.DOC_DATE - 1] = q.docDate ? new Date(q.docDate) : "";
-  fila[TICKETS_COLS.CARD_CODE - 1] = q.cardCode || "";
-  fila[TICKETS_COLS.CARD_NAME - 1] = q.cardName || "";
-  fila[TICKETS_COLS.COMENTARIOS - 1] = q.comments || "";
-  fila[TICKETS_COLS.NUM_AT_CARD - 1] = q.numAtCard || "";
-  fila[TICKETS_COLS.SALES_PERSON - 1] = q.salesPersonName || "";
+  fila[TICKETS_COLS.CARD_CODE - 1] = escaparFormula_(q.cardCode || "");
+  fila[TICKETS_COLS.CARD_NAME - 1] = escaparFormula_(q.cardName || "");
+  fila[TICKETS_COLS.COMENTARIOS - 1] = escaparFormula_(q.comments || "");
+  fila[TICKETS_COLS.NUM_AT_CARD - 1] = escaparFormula_(q.numAtCard || "");
+  fila[TICKETS_COLS.SALES_PERSON - 1] = escaparFormula_(q.salesPersonName || "");
   fila[TICKETS_COLS.ESTADO - 1] = ESTADOS_TICKET.PENDIENTE_REVISION;
   fila[TICKETS_COLS.ITEMS_TOTAL - 1] = lineasParaPrep.length; // solo cuenta items de inventario
   fila[TICKETS_COLS.ITEMS_RECOGIDOS - 1] = 0;
@@ -243,13 +243,13 @@ function crearTicket_(ticketsSheet, lineasSheet, ticketId, q, lineas) {
   const filasLineas = lineas.map(function(l, idx) {
     const f = new Array(TICKETS_LINEAS_HEADERS.length).fill("");
     const incluida = esLineaInventario_(l.itemCode);
-    f[TICKETS_LINEAS_COLS.TICKET_ID - 1] = ticketId;
+    f[TICKETS_LINEAS_COLS.TICKET_ID - 1] = escaparFormula_(ticketId);
     f[TICKETS_LINEAS_COLS.LINE_NUM - 1] = l.lineNum != null ? l.lineNum : idx;
-    f[TICKETS_LINEAS_COLS.ITEM_CODE - 1] = l.itemCode || "";
-    f[TICKETS_LINEAS_COLS.DESCRIPCION - 1] = l.itemDescription || "";
+    f[TICKETS_LINEAS_COLS.ITEM_CODE - 1] = escaparFormula_(l.itemCode || "");
+    f[TICKETS_LINEAS_COLS.DESCRIPCION - 1] = escaparFormula_(l.itemDescription || "");
     f[TICKETS_LINEAS_COLS.CANTIDAD_PEDIDA - 1] = Number(l.quantity || 0);
     f[TICKETS_LINEAS_COLS.CANTIDAD_RECOGIDA - 1] = 0;
-    f[TICKETS_LINEAS_COLS.UBICACION - 1] = l.binCode || "";
+    f[TICKETS_LINEAS_COLS.UBICACION - 1] = escaparFormula_(l.binCode || "");
     f[TICKETS_LINEAS_COLS.ESTADO_LINEA - 1] = ESTADOS_LINEA_TICKET.PENDIENTE;
     f[TICKETS_LINEAS_COLS.INCLUIDA_PREPARACION - 1] = incluida;
     f[TICKETS_LINEAS_COLS.EXCLUIDA_POR - 1] = incluida ? "" : "sistema";
@@ -278,10 +278,10 @@ function esLineaInventario_(itemCode) {
 function actualizarTicketAbierto_(ticketsSheet, lineasSheet, row, ticketId, q, lineas) {
   // Solo actualiza campos "informativos" (comentarios, cliente, total items)
   // No toca estado ni auxiliar.
-  ticketsSheet.getRange(row, TICKETS_COLS.COMENTARIOS).setValue(q.comments || "");
-  ticketsSheet.getRange(row, TICKETS_COLS.CARD_NAME).setValue(q.cardName || "");
-  ticketsSheet.getRange(row, TICKETS_COLS.NUM_AT_CARD).setValue(q.numAtCard || "");
-  ticketsSheet.getRange(row, TICKETS_COLS.SALES_PERSON).setValue(q.salesPersonName || "");
+  ticketsSheet.getRange(row, TICKETS_COLS.COMENTARIOS).setValue(escaparFormula_(q.comments || ""));
+  ticketsSheet.getRange(row, TICKETS_COLS.CARD_NAME).setValue(escaparFormula_(q.cardName || ""));
+  ticketsSheet.getRange(row, TICKETS_COLS.NUM_AT_CARD).setValue(escaparFormula_(q.numAtCard || ""));
+  ticketsSheet.getRange(row, TICKETS_COLS.SALES_PERSON).setValue(escaparFormula_(q.salesPersonName || ""));
   const incluidas = lineas.filter(function(l) { return esLineaInventario_(l.itemCode); });
   ticketsSheet.getRange(row, TICKETS_COLS.ITEMS_TOTAL).setValue(incluidas.length);
   ticketsSheet.getRange(row, TICKETS_COLS.FECHA_SYNC).setValue(new Date());
@@ -669,7 +669,7 @@ function tomarTicket(token, ticketId) {
         return { exito: false, mensaje: "Ya fue tomado por " + auxActual };
       }
       sheet.getRange(fila.row, TICKETS_COLS.ESTADO).setValue(ESTADOS_TICKET.EN_PREP);
-      sheet.getRange(fila.row, TICKETS_COLS.AUXILIAR).setValue(sesion.nombre || sesion.usuario);
+      sheet.getRange(fila.row, TICKETS_COLS.AUXILIAR).setValue(escaparFormula_(sesion.nombre || sesion.usuario));
       sheet.getRange(fila.row, TICKETS_COLS.FECHA_TOMADO).setValue(new Date());
       cacheInvalidarSimple_(CACHE_KEYS.RESUMEN_INICIO);
       return { exito: true, mensaje: "Pedido tomado" };
@@ -724,9 +724,9 @@ function marcarItemRecogido(token, ticketId, lineNum, datos) {
       // Actualiza la línea
       lineasSheet.getRange(filaLinea.row, TICKETS_LINEAS_COLS.CANTIDAD_RECOGIDA).setValue(cantidadRecogida);
       lineasSheet.getRange(filaLinea.row, TICKETS_LINEAS_COLS.ESTADO_LINEA).setValue(nuevoEstado);
-      lineasSheet.getRange(filaLinea.row, TICKETS_LINEAS_COLS.MOTIVO_FALTA).setValue(motivo);
+      lineasSheet.getRange(filaLinea.row, TICKETS_LINEAS_COLS.MOTIVO_FALTA).setValue(escaparFormula_(motivo));
       lineasSheet.getRange(filaLinea.row, TICKETS_LINEAS_COLS.RECOGIDO_EN).setValue(new Date());
-      lineasSheet.getRange(filaLinea.row, TICKETS_LINEAS_COLS.RECOGIDO_POR).setValue(sesion.nombre || sesion.usuario);
+      lineasSheet.getRange(filaLinea.row, TICKETS_LINEAS_COLS.RECOGIDO_POR).setValue(escaparFormula_(sesion.nombre || sesion.usuario));
 
       let movimientoId = "";
       // Si recogido y hay cantidad > 0, genera movimiento auto
@@ -738,14 +738,14 @@ function marcarItemRecogido(token, ticketId, lineNum, datos) {
             movimientoId,
             new Date(),
             "PEDIDO",
-            ticketId,
-            itemCode,
-            itemCode,
-            descripcion,
+            escaparFormula_(ticketId),
+            escaparFormula_(itemCode),
+            escaparFormula_(itemCode),
+            escaparFormula_(descripcion),
             cantidadRecogida,
-            ubicacion,
+            escaparFormula_(ubicacion),
             STAGING_DESPACHO,
-            sesion.nombre || sesion.usuario,
+            escaparFormula_(sesion.nombre || sesion.usuario),
             ESTADO_MOVIMIENTO.UBICADO,
             false,
             "",
@@ -806,10 +806,10 @@ function toggleLineaIncluida(token, ticketId, lineNum, incluir, motivo) {
       const nuevaIncluida = (incluir === true);
       lineasSheet.getRange(filaLinea.row, TICKETS_LINEAS_COLS.INCLUIDA_PREPARACION).setValue(nuevaIncluida);
       lineasSheet.getRange(filaLinea.row, TICKETS_LINEAS_COLS.EXCLUIDA_POR).setValue(
-        nuevaIncluida ? "" : (sesion.nombre || sesion.usuario)
+        nuevaIncluida ? "" : escaparFormula_(sesion.nombre || sesion.usuario)
       );
       lineasSheet.getRange(filaLinea.row, TICKETS_LINEAS_COLS.MOTIVO_EXCLUSION).setValue(
-        nuevaIncluida ? "" : normalizarTexto(motivo || "excluida por agente")
+        nuevaIncluida ? "" : escaparFormula_(normalizarTexto(motivo || "excluida por agente"))
       );
 
       // Recalcula contadores en la cabecera

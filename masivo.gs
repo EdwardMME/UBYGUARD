@@ -54,15 +54,15 @@ function prepararTrabajoMasivo(token, documento) {
       if (!sapItem) sinSap++;
 
       filas.push([
-        documentoNormalizado,
-        numeroArticulo || (sapItem ? sapItem[1] : ""),
-        descripcion || (sapItem ? sapItem[2] : ""),
-        numeroParte,
+        escaparFormula_(documentoNormalizado),
+        escaparFormula_(numeroArticulo || (sapItem ? sapItem[1] : "")),
+        escaparFormula_(descripcion || (sapItem ? sapItem[2] : "")),
+        escaparFormula_(numeroParte),
         cantidadTotal,
         0,
         cantidadTotal,
-        almacen,
-        sapItem ? sapItem[4] : "",
+        escaparFormula_(almacen),
+        escaparFormula_(sapItem ? sapItem[4] : ""),
         "",
         ESTADOS_LINEA.PENDIENTE,
         false,
@@ -131,7 +131,7 @@ function guardarEdicionTrabajoMasivo(token, rowNumber, observacion) {
       return { exito: false, mensaje: "La línea ya no permite edición" };
     }
     trabajoSheet.getRange(rowNumber, TRABAJO_MASIVO_COLS.OBSERVACION)
-      .setValue(normalizarTexto(observacion));
+      .setValue(escaparFormula_(normalizarTexto(observacion)));
     return { exito: true, mensaje: "Observación actualizada" };
   });
 }
@@ -171,14 +171,14 @@ function registrarTrabajoMasivo(token, rowNumber, cantidadRegistrar, ubicacionFi
       generarID(),
       new Date(),
       TIPO_MOVIMIENTO.INGRESO_MASIVO,
-      row.documento,
-      row.numeroParte,
-      row.numeroArticulo,
-      row.descripcionArticulo,
+      escaparFormula_(row.documento),
+      escaparFormula_(row.numeroParte),
+      escaparFormula_(row.numeroArticulo),
+      escaparFormula_(row.descripcionArticulo),
       cantVal.valor,
-      row.ubicacionOrigen,
-      ubicacionFinalNormalizada,
-      respVal.valor,
+      escaparFormula_(row.ubicacionOrigen),
+      escaparFormula_(ubicacionFinalNormalizada),
+      escaparFormula_(respVal.valor),
       ESTADO_MOVIMIENTO.UBICADO,
       false,
       "",
@@ -198,12 +198,12 @@ function registrarTrabajoMasivo(token, rowNumber, cantidadRegistrar, ubicacionFi
 
     trabajoSheet.getRange(rowNumber, TRABAJO_MASIVO_COLS.CANTIDAD_REGISTRADA).setValue(nuevaCantidadRegistrada);
     trabajoSheet.getRange(rowNumber, TRABAJO_MASIVO_COLS.CANTIDAD_PENDIENTE).setValue(nuevaCantidadPendiente);
-    trabajoSheet.getRange(rowNumber, TRABAJO_MASIVO_COLS.ULTIMA_UBICACION_DESTINO).setValue(ubicacionFinalNormalizada);
+    trabajoSheet.getRange(rowNumber, TRABAJO_MASIVO_COLS.ULTIMA_UBICACION_DESTINO).setValue(escaparFormula_(ubicacionFinalNormalizada));
     trabajoSheet.getRange(rowNumber, TRABAJO_MASIVO_COLS.ESTADO).setValue(estado);
     trabajoSheet.getRange(rowNumber, TRABAJO_MASIVO_COLS.BLOQUEADO).setValue(bloqueado);
-    trabajoSheet.getRange(rowNumber, TRABAJO_MASIVO_COLS.RESPONSABLE_ULTIMO_MOVIMIENTO).setValue(respVal.valor);
+    trabajoSheet.getRange(rowNumber, TRABAJO_MASIVO_COLS.RESPONSABLE_ULTIMO_MOVIMIENTO).setValue(escaparFormula_(respVal.valor));
     trabajoSheet.getRange(rowNumber, TRABAJO_MASIVO_COLS.FECHA_ULTIMO_MOVIMIENTO).setValue(new Date());
-    trabajoSheet.getRange(rowNumber, TRABAJO_MASIVO_COLS.OBSERVACION).setValue(normalizarTexto(observacion));
+    trabajoSheet.getRange(rowNumber, TRABAJO_MASIVO_COLS.OBSERVACION).setValue(escaparFormula_(normalizarTexto(observacion)));
     trabajoSheet.getRange(rowNumber, TRABAJO_MASIVO_COLS.EDITABLE).setValue(editable);
 
     cacheInvalidarSimple_(CACHE_KEYS.RESUMEN_INICIO);
