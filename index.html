@@ -821,10 +821,10 @@
               <span x-text="pedidosAgente.sincronizandoOT ? 'OT…' : 'Sync OT'"></span>
             </button>
             <button @click="devolverTodosARevision()" :disabled="pedidosAgente.migrando"
-                    x-show="(pedidosAgente.enviados || []).some(p => p.estado === 'ABIERTO' && !p.auxiliar)"
-                    class="btn btn-soft btn-sm" title="Mueve a revisión todos los ABIERTOS sin tomar">
+                    x-show="pedidosAgente.legacyAbiertosCount > 0"
+                    class="btn btn-soft btn-sm" title="Mueve a revisión todos los ABIERTOS sin auxiliar (cualquier fecha)">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
-              Devolver ABIERTOS a revisión
+              <span>Devolver <b x-text="pedidosAgente.legacyAbiertosCount"></b> ABIERTOS a revisión</span>
             </button>
           </div>
         </div>
@@ -1026,27 +1026,27 @@
             </div>
             <span x-show="sesion.rol === 'AGENTE'" class="text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold">Modo agente · clasifica</span>
           </div>
-          <div class="space-y-1">
+          <div class="space-y-2">
             <template x-for="l in pedidos.previewLineas" :key="l.lineNum">
-              <div class="py-2 border-b border-[color:var(--border)] last:border-0"
-                   :class="{ 'opacity-50': !l.incluida }">
-                <div class="flex items-center gap-2 text-sm">
+              <div class="px-3 py-3 rounded-lg border border-[color:var(--border)] bg-slate-50/40 dark:bg-slate-800/30"
+                   :class="{ 'opacity-60': !l.incluida }">
+                <div class="flex items-center gap-3 text-sm">
                   <!-- Toggle solo para AGENTE -->
                   <button x-show="sesion.rol === 'AGENTE' && pedidos.previewAbierto?.estado !== 'ENTREGADO'"
                           @click="toggleIncluida(l)"
                           :title="l.incluida ? 'Excluir de preparación' : 'Incluir en preparación'"
-                          class="flex-shrink-0 w-8 h-5 rounded-full transition-colors relative"
+                          class="flex-shrink-0 w-9 h-5 rounded-full transition-colors relative"
                           :class="l.incluida ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'">
                     <span class="block w-4 h-4 bg-white rounded-full shadow absolute top-0.5 transition-all"
-                          :class="l.incluida ? 'left-3.5' : 'left-0.5'"></span>
+                          :class="l.incluida ? 'left-4' : 'left-0.5'"></span>
                   </button>
-                  <span class="mono font-bold text-slate-700 dark:text-slate-200 min-w-[80px]" x-text="l.itemCode"></span>
+                  <span class="mono font-bold text-slate-700 dark:text-slate-200 min-w-[90px]" x-text="l.itemCode"></span>
                   <span class="flex-1 truncate" x-text="l.descripcion"></span>
                   <span x-show="!l.incluida" class="chip chip-mute text-[9px]" :title="l.motivoExclusion || 'excluida'">EXC</span>
-                  <span class="mono font-bold text-amber-700 dark:text-amber-400" x-text="l.cantidadPedida + ' u'"></span>
+                  <span class="mono font-bold text-amber-700 dark:text-amber-400 min-w-[40px] text-right" x-text="l.cantidadPedida + ' u'"></span>
                 </div>
                 <!-- Info de inventario debajo, solo para incluidas -->
-                <div x-show="l.incluida" class="flex items-center flex-wrap gap-2 text-[11px] mt-1 pl-2 text-slate-500 dark:text-slate-400">
+                <div x-show="l.incluida" class="flex items-center flex-wrap gap-x-4 gap-y-1 text-[11px] mt-2 pl-[52px] text-slate-500 dark:text-slate-400">
                   <span class="inline-flex items-center gap-1" :class="l.stockSap == null ? '' : (l.stockSap >= l.cantidadPedida ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400 font-semibold')">
                     📦 Stock: <span class="mono" x-text="l.stockSap == null ? '?' : l.stockSap"></span>
                   </span>
@@ -2226,7 +2226,8 @@
         sincronizandoOT: false,
         migrando: false,
         pendientes: [],
-        enviados: []
+        enviados: [],
+        legacyAbiertosCount: 0
       },
 
       // Indicadores de pickup en el home
@@ -3144,8 +3145,8 @@
 
       // ======================= PICKUP (auxiliar y agente) =======================
       cargarPedidos() {
-        // Default: 7 días atrás (cubre tickets enviados a pickup días anteriores aún sin entregar)
-        if (!this.pedidos.fechaPickup) this.pedidos.fechaPickup = this._fechaHaceNDiasISO(7);
+        // Default: ayer (cubre ayer + hoy; ajustable si quieren ver más atrás)
+        if (!this.pedidos.fechaPickup) this.pedidos.fechaPickup = this._fechaHaceNDiasISO(1);
         this.pedidos.cargando = true;
         this.rpc('obtenerTickets', { fecha: this.pedidos.fechaPickup }).then(res => {
           this.pedidos.lista = (res && res.tickets) || [];
@@ -3156,8 +3157,8 @@
 
       // ======================= PEDIDOS (solo AGENTE) =======================
       cargarPedidosRevision() {
-        // Default: 7 días atrás (cubre OVs/OTs todavía abiertas creadas días anteriores)
-        if (!this.pedidosAgente.fecha) this.pedidosAgente.fecha = this._fechaHaceNDiasISO(7);
+        // Default: ayer (cubre ayer + hoy, ventana operativa típica)
+        if (!this.pedidosAgente.fecha) this.pedidosAgente.fecha = this._fechaHaceNDiasISO(1);
         this.pedidosAgente.cargando = true;
         this.rpc('obtenerPedidosRevision', { fecha: this.pedidosAgente.fecha, incluirEnviados: true }).then(res => {
           this.pedidosAgente.cargando = false;
@@ -3168,6 +3169,10 @@
             this.toast(res && res.mensaje || 'Error', 'err');
           }
         }).catch(() => { this.pedidosAgente.cargando = false; this.toast('Error de red', 'err'); });
+        // Conteo global (cualquier fecha) de ABIERTOS sin auxiliar — para el botón de migración legacy
+        this.rpc('contarAbiertosSinTomar').then(res => {
+          if (res && res.exito) this.pedidosAgente.legacyAbiertosCount = res.count || 0;
+        }).catch(() => {});
       },
 
       sincronizarOT() {
@@ -3222,14 +3227,13 @@
       },
 
       devolverTodosARevision() {
-        const abiertosSinTomar = (this.pedidosAgente.enviados || []).filter(p => p.estado === 'ABIERTO' && !p.auxiliar).length;
-        if (abiertosSinTomar === 0) { this.toast('No hay ABIERTOS sin tomar', 'info'); return; }
-        if (!confirm('¿Devolver ' + abiertosSinTomar + ' pedido(s) ABIERTOS sin auxiliar a revisión?\n\nEsto te permite re-clasificarlos antes de mandarlos a Pickup. No afecta los que ya tomó un auxiliar.')) return;
+        if (!confirm('¿Devolver TODOS los pedidos ABIERTOS sin auxiliar a revisión?\n\nLimpia data legacy de cualquier fecha. No afecta los que ya tomó un auxiliar ni los que tienen líneas trabajadas.')) return;
         this.pedidosAgente.migrando = true;
-        this.rpc('devolverTodosARevision', { fecha: this.pedidosAgente.fecha }).then(res => {
+        // Sin fecha → migra TODOS los ABIERTOS sin auxiliar regardless of date
+        this.rpc('devolverTodosARevision', {}).then(res => {
           this.pedidosAgente.migrando = false;
           if (res && res.exito) {
-            this.toast(res.devueltos + ' devueltos a revisión', 'ok');
+            this.toast(res.devueltos + ' pedidos devueltos a revisión', 'ok');
             this.cargarPedidosRevision();
           } else {
             this.toast(res && res.mensaje || 'Error', 'err');

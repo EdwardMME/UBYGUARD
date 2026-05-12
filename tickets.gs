@@ -492,6 +492,31 @@ function devolverTodosARevision(token, opts) {
   });
 }
 
+/**
+ * Cuenta tickets ABIERTOS sin auxiliar tomado (legacy candidates) en TODA la hoja,
+ * sin filtrar por fecha. Lo usa el frontend para mostrar el botón "Devolver todos
+ * a revisión" cuando hay legacy de cualquier fecha.
+ */
+function contarAbiertosSinTomar(token) {
+  return conSesion_(token, ROLES.AGENTE, function() {
+    const sheet = asegurarHojaTickets_();
+    const lineasSheet = asegurarHojaTicketsLineas_();
+    if (sheet.getLastRow() < 2) return { exito: true, count: 0 };
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, TICKETS_HEADERS.length).getValues();
+    const idsConTrabajadas = trabajadasPorTicket_(lineasSheet);
+    let n = 0;
+    for (let i = 0; i < data.length; i++) {
+      const r = data[i];
+      if (String(r[TICKETS_COLS.ESTADO - 1] || "") !== ESTADOS_TICKET.ABIERTO) continue;
+      if (String(r[TICKETS_COLS.AUXILIAR - 1] || "").trim()) continue;
+      const tid = String(r[TICKETS_COLS.TICKET_ID - 1] || "").trim();
+      if (idsConTrabajadas[tid]) continue;
+      n++;
+    }
+    return { exito: true, count: n };
+  });
+}
+
 function trabajadasPorTicket_(lineasSheet) {
   const out = {};
   if (lineasSheet.getLastRow() < 2) return out;
