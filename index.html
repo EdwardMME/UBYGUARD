@@ -809,14 +809,23 @@
             </h3>
             <p class="text-sm text-slate-500 dark:text-slate-400">Cotizaciones SAP del día · clasifica y envía a Pickup</p>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
             <label class="text-xs uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400">Fecha</label>
             <input type="date" x-model="pedidosAgente.fecha" @change="cargarPedidosRevision()" class="input text-sm">
             <button @click="sincronizarPedidosFecha()" :disabled="pedidosAgente.sincronizando" class="btn btn-soft btn-sm">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :class="{'spin': pedidosAgente.sincronizando}"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
               <span x-text="pedidosAgente.sincronizando ? 'Buscando…' : 'Buscar en SAP'"></span>
             </button>
+            <button @click="devolverTodosARevision()" :disabled="pedidosAgente.migrando"
+                    x-show="(pedidosAgente.enviados || []).some(p => p.estado === 'ABIERTO' && !p.auxiliar)"
+                    class="btn btn-soft btn-sm" title="Mueve a revisión todos los ABIERTOS sin tomar">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+              Devolver ABIERTOS a revisión
+            </button>
           </div>
+        </div>
+        <div class="rounded-lg bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 p-2 mb-3 text-[11px] text-sky-800 dark:text-sky-300">
+          ℹ️ Por ahora solo se sincronizan <b>cotizaciones (OV)</b> abiertas del almacén SP0002. Las <b>OT</b> requieren que Andre publique el endpoint en su API.
         </div>
 
         <!-- Sección: pendientes de revisión -->
@@ -1046,15 +1055,24 @@
             </template>
           </div>
         </div>
-        <div class="mt-4 flex gap-2">
+        <div class="mt-4 flex gap-2 flex-wrap">
           <button @click="cerrarPreview()" class="btn btn-ghost flex-1">Cerrar</button>
-          <!-- AGENTE en revisión: enviar a pickup -->
+          <!-- AGENTE · PENDIENTE_REVISION: enviar a pickup -->
           <button @click="enviarAPickupDesdePreview()" x-show="sesion.rol === 'AGENTE' && pedidos.previewAbierto?.estado === 'PENDIENTE_REVISION'" class="btn btn-primary flex-1 text-base !py-3">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             Enviar a Pickup
           </button>
-          <!-- AUXILIAR: tomar pedido -->
-          <button @click="tomarPedidoDesdePreview()" x-show="pedidos.previewAbierto?.estado === 'ABIERTO'" class="btn btn-primary flex-1 text-base !py-3">
+          <!-- AGENTE · ABIERTO sin auxiliar: devolver a revisión -->
+          <button @click="devolverARevisionDesdePreview()"
+                  x-show="sesion.rol === 'AGENTE' && pedidos.previewAbierto?.estado === 'ABIERTO' && !pedidos.previewAbierto?.auxiliar"
+                  class="btn btn-soft flex-1 text-base !py-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+            Devolver a revisión
+          </button>
+          <!-- AUXILIAR (no AGENTE): tomar pedido -->
+          <button @click="tomarPedidoDesdePreview()"
+                  x-show="pedidos.previewAbierto?.estado === 'ABIERTO' && sesion.rol !== 'AGENTE'"
+                  class="btn btn-primary flex-1 text-base !py-3">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
             Yo tomo este pedido
           </button>
@@ -2200,6 +2218,7 @@
         fecha: '',
         cargando: false,
         sincronizando: false,
+        migrando: false,
         pendientes: [],
         enviados: []
       },
@@ -3140,6 +3159,37 @@
             this.toast(res && res.mensaje || 'Error sync', 'err');
           }
         }).catch(() => { this.pedidosAgente.sincronizando = false; this.toast('Error de red', 'err'); });
+      },
+
+      devolverARevisionDesdePreview() {
+        const t = this.pedidos.previewAbierto;
+        if (!t) return;
+        if (!confirm('¿Devolver OV-' + t.docNum + ' a revisión? El auxiliar dejará de verlo en Pickup.')) return;
+        this.rpc('devolverARevision', t.ticketId).then(res => {
+          if (res && res.exito) {
+            this.toast('Devuelto a revisión', 'ok');
+            this.cerrarPreview();
+            this.cargarPedidosRevision();
+          } else {
+            this.toast(res && res.mensaje || 'Error', 'err');
+          }
+        }).catch(() => this.toast('Error de red', 'err'));
+      },
+
+      devolverTodosARevision() {
+        const abiertosSinTomar = (this.pedidosAgente.enviados || []).filter(p => p.estado === 'ABIERTO' && !p.auxiliar).length;
+        if (abiertosSinTomar === 0) { this.toast('No hay ABIERTOS sin tomar', 'info'); return; }
+        if (!confirm('¿Devolver ' + abiertosSinTomar + ' pedido(s) ABIERTOS sin auxiliar a revisión?\n\nEsto te permite re-clasificarlos antes de mandarlos a Pickup. No afecta los que ya tomó un auxiliar.')) return;
+        this.pedidosAgente.migrando = true;
+        this.rpc('devolverTodosARevision', { fecha: this.pedidosAgente.fecha }).then(res => {
+          this.pedidosAgente.migrando = false;
+          if (res && res.exito) {
+            this.toast(res.devueltos + ' devueltos a revisión', 'ok');
+            this.cargarPedidosRevision();
+          } else {
+            this.toast(res && res.mensaje || 'Error', 'err');
+          }
+        }).catch(() => { this.pedidosAgente.migrando = false; this.toast('Error de red', 'err'); });
       },
 
       enviarAPickupDesdePreview() {

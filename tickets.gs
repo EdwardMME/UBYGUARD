@@ -274,8 +274,15 @@ function obtenerPedidosRevision(token, opts) {
       }
     });
 
-    pendientes.sort(function(a, b) { return (b.docDateRaw || 0) - (a.docDateRaw || 0); });
-    enviados.sort(ordenTicketsPickup_);
+    pendientes.sort(function(a, b) { return Number(b.docNum || 0) - Number(a.docNum || 0); });
+    enviados.sort(function(a, b) {
+      // Primero por estado (ABIERTO > EN_PREP > LISTO), luego docNum desc
+      const ordenEst = { ABIERTO: 1, EN_PREP: 2, LISTO: 3 };
+      const oa = ordenEst[a.estado] || 99;
+      const ob = ordenEst[b.estado] || 99;
+      if (oa !== ob) return oa - ob;
+      return Number(b.docNum || 0) - Number(a.docNum || 0);
+    });
     return { exito: true, pendientes: pendientes, enviados: enviados, fecha: rangoFecha.fechaISO };
   });
 }
@@ -310,6 +317,97 @@ function enviarAPickup(token, ticketId) {
       try { lock.releaseLock(); } catch (e) {}
     }
   });
+}
+
+/**
+ * AGENTE devuelve un ticket de ABIERTO → PENDIENTE_REVISION para volver a clasificarlo.
+ * Sólo permitido si ningún auxiliar lo tomó (AUXILIAR vacío y ninguna línea trabajada).
+ */
+function devolverARevision(token, ticketId) {
+  return conSesion_(token, ROLES.AGENTE, function() {
+    const sheet = asegurarHojaTickets_();
+    const lineasSheet = asegurarHojaTicketsLineas_();
+    const lock = LockService.getDocumentLock();
+    try {
+      lock.waitLock(15000);
+      const fila = buscarTicketRow_(sheet, ticketId);
+      if (!fila) return { exito: false, mensaje: "Ticket no encontrado" };
+      const estado = String(fila.data[TICKETS_COLS.ESTADO - 1] || "");
+      if (estado !== ESTADOS_TICKET.ABIERTO) {
+        return { exito: false, mensaje: "Solo se pueden devolver pedidos ABIERTOS sin tomar" };
+      }
+      const aux = String(fila.data[TICKETS_COLS.AUXILIAR - 1] || "").trim();
+      if (aux) {
+        return { exito: false, mensaje: "Ya fue tomado por " + aux + " · no se puede devolver" };
+      }
+      // Chequeo extra: ninguna línea trabajada
+      const lineas = obtenerLineasDeTicket_(lineasSheet, ticketId);
+      const trabajadas = lineas.filter(function(l) {
+        return l.estado === ESTADOS_LINEA_TICKET.RECOGIDO || l.estado === ESTADOS_LINEA_TICKET.FALTANTE;
+      });
+      if (trabajadas.length > 0) {
+        return { exito: false, mensaje: "Hay líneas trabajadas · no se puede devolver" };
+      }
+      sheet.getRange(fila.row, TICKETS_COLS.ESTADO).setValue(ESTADOS_TICKET.PENDIENTE_REVISION);
+      cacheInvalidarSimple_(CACHE_KEYS.RESUMEN_INICIO);
+      return { exito: true, mensaje: "Devuelto a revisión" };
+    } finally {
+      try { lock.releaseLock(); } catch (e) {}
+    }
+  });
+}
+
+/**
+ * Migración masiva (one-shot): pasa todos los ABIERTOS sin auxiliar a PENDIENTE_REVISION.
+ * Útil para data heredada que se sincronizó antes del cambio de estado.
+ * @param {Object} opts { fecha?: "YYYY-MM-DD" } — si se da, solo afecta esa fecha
+ */
+function devolverTodosARevision(token, opts) {
+  return conSesion_(token, ROLES.AGENTE, function() {
+    const o = opts || {};
+    const sheet = asegurarHojaTickets_();
+    const lineasSheet = asegurarHojaTicketsLineas_();
+    if (sheet.getLastRow() < 2) return { exito: true, devueltos: 0 };
+    const tz = Session.getScriptTimeZone();
+    const rango = construirRangoFecha_({ fecha: o.fecha || "" }, tz);
+
+    const lock = LockService.getDocumentLock();
+    try {
+      lock.waitLock(30000);
+      const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, TICKETS_HEADERS.length).getValues();
+      const idsConTrabajadas = trabajadasPorTicket_(lineasSheet);
+      let devueltos = 0;
+      for (let i = 0; i < data.length; i++) {
+        const r = data[i];
+        const estado = String(r[TICKETS_COLS.ESTADO - 1] || "");
+        if (estado !== ESTADOS_TICKET.ABIERTO) continue;
+        const aux = String(r[TICKETS_COLS.AUXILIAR - 1] || "").trim();
+        if (aux) continue;
+        const tid = String(r[TICKETS_COLS.TICKET_ID - 1] || "").trim();
+        if (idsConTrabajadas[tid]) continue;
+        if (o.fecha && !ticketEnRango_(r, rango)) continue;
+        sheet.getRange(i + 2, TICKETS_COLS.ESTADO).setValue(ESTADOS_TICKET.PENDIENTE_REVISION);
+        devueltos++;
+      }
+      cacheInvalidarSimple_(CACHE_KEYS.RESUMEN_INICIO);
+      return { exito: true, devueltos: devueltos };
+    } finally {
+      try { lock.releaseLock(); } catch (e) {}
+    }
+  });
+}
+
+function trabajadasPorTicket_(lineasSheet) {
+  const out = {};
+  if (lineasSheet.getLastRow() < 2) return out;
+  const data = lineasSheet.getRange(2, 1, lineasSheet.getLastRow() - 1, TICKETS_LINEAS_HEADERS.length).getValues();
+  for (let i = 0; i < data.length; i++) {
+    const estado = String(data[i][TICKETS_LINEAS_COLS.ESTADO_LINEA - 1] || "");
+    if (estado === ESTADOS_LINEA_TICKET.RECOGIDO || estado === ESTADOS_LINEA_TICKET.FALTANTE) {
+      out[String(data[i][TICKETS_LINEAS_COLS.TICKET_ID - 1]).trim()] = true;
+    }
+  }
+  return out;
 }
 
 /**
