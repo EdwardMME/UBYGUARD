@@ -35,10 +35,13 @@ const STAGING_DESPACHO = "STAGING-DESPACHO";
  * Para ejecutar manual: Run → sincronizarTicketsDesdeSap
  * Para automático: instalar trigger horario con instalarTriggerSyncTickets.
  */
-function sincronizarTicketsDesdeSap() {
+function sincronizarTicketsDesdeSap(opts) {
   try {
+    const o = opts || {};
     const t0 = Date.now();
-    const resp = sapListarCotizaciones_({ status: "open", limit: 200 });
+    const filtros = { status: o.status || "open", limit: 200 };
+    if (o.dateFrom) filtros.dateFrom = o.dateFrom;
+    const resp = sapListarCotizaciones_(filtros);
     const remoto = (resp && resp.data) || [];
 
     const ticketsSheet = asegurarHojaTickets_();
@@ -71,21 +74,22 @@ function sincronizarTicketsDesdeSap() {
           crearTicket_(ticketsSheet, lineasSheet, ticketId, q, lineasSp);
           creados++;
         } else {
-          // ACTUALIZAR sólo si está ABIERTO (no toca los que ya tomó un auxiliar)
-          if (existente.estado === ESTADOS_TICKET.ABIERTO) {
+          // ACTUALIZAR sólo si está PENDIENTE_REVISION o ABIERTO (nadie tomó aún)
+          if (existente.estado === ESTADOS_TICKET.PENDIENTE_REVISION || existente.estado === ESTADOS_TICKET.ABIERTO) {
             actualizarTicketAbierto_(ticketsSheet, lineasSheet, existente.row, ticketId, q, lineasSp);
             actualizados++;
           } else {
-            // Sólo refresca fecha_sync para indicar que vino en el último pull
             ticketsSheet.getRange(existente.row, TICKETS_COLS.FECHA_SYNC).setValue(new Date());
           }
         }
       }
 
-      // Detecta tickets locales ABIERTOS que ya no vienen de SAP → marcar CANCELADO
+      // Detecta tickets locales aún no tomados que ya no vienen de SAP → marcar CANCELADO
       let cancelados = 0;
       Object.keys(indiceLocal).forEach(function(tid) {
-        if (!docNumsRemotos[tid] && indiceLocal[tid].estado === ESTADOS_TICKET.ABIERTO) {
+        if (docNumsRemotos[tid]) return;
+        const est = indiceLocal[tid].estado;
+        if (est === ESTADOS_TICKET.PENDIENTE_REVISION || est === ESTADOS_TICKET.ABIERTO) {
           ticketsSheet.getRange(indiceLocal[tid].row, TICKETS_COLS.ESTADO).setValue(ESTADOS_TICKET.CANCELADO);
           cancelados++;
         }
@@ -134,7 +138,7 @@ function crearTicket_(ticketsSheet, lineasSheet, ticketId, q, lineas) {
   fila[TICKETS_COLS.COMENTARIOS - 1] = q.comments || "";
   fila[TICKETS_COLS.NUM_AT_CARD - 1] = q.numAtCard || "";
   fila[TICKETS_COLS.SALES_PERSON - 1] = q.salesPersonName || "";
-  fila[TICKETS_COLS.ESTADO - 1] = ESTADOS_TICKET.ABIERTO;
+  fila[TICKETS_COLS.ESTADO - 1] = ESTADOS_TICKET.PENDIENTE_REVISION;
   fila[TICKETS_COLS.ITEMS_TOTAL - 1] = lineasParaPrep.length; // solo cuenta items de inventario
   fila[TICKETS_COLS.ITEMS_RECOGIDOS - 1] = 0;
   fila[TICKETS_COLS.FECHA_SYNC - 1] = new Date();
@@ -209,8 +213,9 @@ function indiceTicketsExistentes_(sheet) {
 // =====================================================================
 
 /**
- * Lista tickets visibles para el usuario actual. Por default trae los del día.
- * AUXILIAR y AGENTE ven los mismos cuadritos.
+ * Vista PICKUP — sólo tickets que el agente envió a pickup (ABIERTO / EN_PREP / LISTO / ENTREGADO).
+ * Excluye explícitamente PENDIENTE_REVISION (esos van por obtenerPedidosRevision).
+ * opts = { dias?: number, fecha?: "YYYY-MM-DD" }
  */
 function obtenerTickets(token, opts) {
   return conSesion_(token, ROLES.AUXILIAR, function(sesion) {
@@ -219,37 +224,205 @@ function obtenerTickets(token, opts) {
     const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, TICKETS_HEADERS.length).getValues();
     const tz = Session.getScriptTimeZone();
     const opciones = opts || {};
-    const dias = Number(opciones.dias || 1); // últimos N días
-    const corte = new Date();
-    corte.setHours(0, 0, 0, 0);
-    corte.setDate(corte.getDate() - (dias - 1));
+
+    const rangoFecha = construirRangoFecha_(opciones, tz);
 
     const tickets = data
       .filter(function(r) {
         const id = String(r[TICKETS_COLS.TICKET_ID - 1]).trim();
         if (!id) return false;
-        // filtra por fecha (DOC_DATE o FECHA_SYNC como fallback)
-        const fecha = r[TICKETS_COLS.DOC_DATE - 1] || r[TICKETS_COLS.FECHA_SYNC - 1];
-        if (fecha instanceof Date && !isNaN(fecha)) return fecha >= corte;
-        return true;
+        const estado = String(r[TICKETS_COLS.ESTADO - 1] || "");
+        // Pickup excluye PENDIENTE_REVISION
+        if (estado === ESTADOS_TICKET.PENDIENTE_REVISION) return false;
+        return ticketEnRango_(r, rangoFecha);
       })
       .map(function(r) { return mapearTicketFila_(r, tz); })
-      .sort(function(a, b) {
-        // ABIERTO primero, luego EN_PREP, luego LISTO, ENTREGADO al final
-        const orden = { ABIERTO: 1, EN_PREP: 2, LISTO: 3, ENTREGADO: 4, CANCELADO: 5 };
-        const oa = orden[a.estado] || 99;
-        const ob = orden[b.estado] || 99;
-        if (oa !== ob) return oa - ob;
-        // dentro del mismo estado, más reciente primero
-        return new Date(b.docDate || 0) - new Date(a.docDate || 0);
-      });
+      .sort(ordenTicketsPickup_);
 
     return { exito: true, tickets: tickets };
   });
 }
 
 /**
- * Detalle de un ticket: cabecera + líneas con estado de cada una.
+ * Vista PEDIDOS (solo AGENTE) — pedidos pendientes de clasificar para una fecha.
+ * Retorna también los ya enviados a pickup para que el agente vea el avance.
+ * opts = { fecha?: "YYYY-MM-DD" (default: hoy), incluirEnviados?: boolean (default true) }
+ */
+function obtenerPedidosRevision(token, opts) {
+  return conSesion_(token, ROLES.AGENTE, function() {
+    const sheet = asegurarHojaTickets_();
+    if (sheet.getLastRow() < 2) return { exito: true, pendientes: [], enviados: [] };
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, TICKETS_HEADERS.length).getValues();
+    const tz = Session.getScriptTimeZone();
+    const o = opts || {};
+    const rangoFecha = construirRangoFecha_({ fecha: o.fecha || fechaHoyISO_(tz) }, tz);
+
+    const pendientes = [];
+    const enviados = [];
+
+    data.forEach(function(r) {
+      const id = String(r[TICKETS_COLS.TICKET_ID - 1]).trim();
+      if (!id) return;
+      if (!ticketEnRango_(r, rangoFecha)) return;
+      const estado = String(r[TICKETS_COLS.ESTADO - 1] || "");
+      const mapeado = mapearTicketFila_(r, tz);
+      if (estado === ESTADOS_TICKET.PENDIENTE_REVISION) {
+        pendientes.push(mapeado);
+      } else if (o.incluirEnviados !== false &&
+                 (estado === ESTADOS_TICKET.ABIERTO || estado === ESTADOS_TICKET.EN_PREP || estado === ESTADOS_TICKET.LISTO)) {
+        enviados.push(mapeado);
+      }
+    });
+
+    pendientes.sort(function(a, b) { return (b.docDateRaw || 0) - (a.docDateRaw || 0); });
+    enviados.sort(ordenTicketsPickup_);
+    return { exito: true, pendientes: pendientes, enviados: enviados, fecha: rangoFecha.fechaISO };
+  });
+}
+
+/**
+ * AGENTE envía un ticket a pickup (PENDIENTE_REVISION → ABIERTO).
+ * Requiere que el agente haya clasificado las líneas (al menos una incluida).
+ */
+function enviarAPickup(token, ticketId) {
+  return conSesion_(token, ROLES.AGENTE, function() {
+    const sheet = asegurarHojaTickets_();
+    const lineasSheet = asegurarHojaTicketsLineas_();
+    const lock = LockService.getDocumentLock();
+    try {
+      lock.waitLock(15000);
+      const fila = buscarTicketRow_(sheet, ticketId);
+      if (!fila) return { exito: false, mensaje: "Ticket no encontrado" };
+      const estado = String(fila.data[TICKETS_COLS.ESTADO - 1] || "");
+      if (estado !== ESTADOS_TICKET.PENDIENTE_REVISION) {
+        return { exito: false, mensaje: "El ticket ya fue enviado a pickup o no aplica" };
+      }
+      const todas = obtenerLineasDeTicket_(lineasSheet, ticketId);
+      const incluidas = todas.filter(function(l) { return l.incluida; });
+      if (incluidas.length === 0) {
+        return { exito: false, mensaje: "Debes incluir al menos una línea antes de enviar" };
+      }
+      sheet.getRange(fila.row, TICKETS_COLS.ESTADO).setValue(ESTADOS_TICKET.ABIERTO);
+      sheet.getRange(fila.row, TICKETS_COLS.ITEMS_TOTAL).setValue(incluidas.length);
+      cacheInvalidarSimple_(CACHE_KEYS.RESUMEN_INICIO);
+      return { exito: true, mensaje: "Enviado a pickup", items: incluidas.length };
+    } finally {
+      try { lock.releaseLock(); } catch (e) {}
+    }
+  });
+}
+
+/**
+ * Indicadores de pickup para el home.
+ * opts = { dias?: number (default 1) }
+ * Devuelve: tiempoPromedioMin, despachados, precisionPct, enPrepActuales, listosActuales, pendientesRevision
+ */
+function obtenerIndicadoresPickup(token, opts) {
+  return conSesion_(token, ROLES.AUXILIAR, function() {
+    const o = opts || {};
+    const dias = Math.max(1, Number(o.dias || 1));
+    const sheet = asegurarHojaTickets_();
+    const lineasSheet = asegurarHojaTicketsLineas_();
+    if (sheet.getLastRow() < 2) return { exito: true, tiempoPromedioMin: 0, despachados: 0, precisionPct: 0, enPrepActuales: 0, listosActuales: 0, pendientesRevision: 0 };
+
+    const corte = new Date();
+    corte.setHours(0, 0, 0, 0);
+    corte.setDate(corte.getDate() - (dias - 1));
+
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, TICKETS_HEADERS.length).getValues();
+    let sumaTiempo = 0, countTiempo = 0;
+    let despachados = 0, enPrep = 0, listos = 0, pendientesRev = 0;
+    const ticketIdsVentana = {};
+
+    for (let i = 0; i < data.length; i++) {
+      const r = data[i];
+      const estado = String(r[TICKETS_COLS.ESTADO - 1] || "");
+      const fechaRef = r[TICKETS_COLS.FECHA_TOMADO - 1] || r[TICKETS_COLS.DOC_DATE - 1];
+      const enVentana = fechaRef instanceof Date && fechaRef >= corte;
+
+      if (estado === ESTADOS_TICKET.PENDIENTE_REVISION) pendientesRev++;
+      if (estado === ESTADOS_TICKET.EN_PREP) enPrep++;
+      if (estado === ESTADOS_TICKET.LISTO) listos++;
+
+      if (enVentana && estado === ESTADOS_TICKET.ENTREGADO) {
+        despachados++;
+        const tSeg = Number(r[TICKETS_COLS.TIEMPO_PREP_SEG - 1] || 0);
+        if (tSeg > 0) { sumaTiempo += tSeg; countTiempo++; }
+        ticketIdsVentana[String(r[TICKETS_COLS.TICKET_ID - 1]).trim()] = true;
+      }
+    }
+
+    // Precisión de inventario: de las líneas trabajadas en la ventana,
+    // % de RECOGIDO con ubicación no vacía
+    let precisionPct = 0;
+    if (Object.keys(ticketIdsVentana).length > 0 && lineasSheet.getLastRow() > 1) {
+      const ld = lineasSheet.getRange(2, 1, lineasSheet.getLastRow() - 1, TICKETS_LINEAS_HEADERS.length).getValues();
+      let trabajadas = 0, conUbicacion = 0;
+      for (let i = 0; i < ld.length; i++) {
+        const tid = String(ld[i][TICKETS_LINEAS_COLS.TICKET_ID - 1]).trim();
+        if (!ticketIdsVentana[tid]) continue;
+        const estLin = String(ld[i][TICKETS_LINEAS_COLS.ESTADO_LINEA - 1] || "");
+        if (estLin !== ESTADOS_LINEA_TICKET.RECOGIDO && estLin !== ESTADOS_LINEA_TICKET.FALTANTE) continue;
+        trabajadas++;
+        if (estLin === ESTADOS_LINEA_TICKET.RECOGIDO && String(ld[i][TICKETS_LINEAS_COLS.UBICACION - 1] || "").trim()) {
+          conUbicacion++;
+        }
+      }
+      if (trabajadas > 0) precisionPct = Math.round((conUbicacion / trabajadas) * 100);
+    }
+
+    return {
+      exito: true,
+      tiempoPromedioMin: countTiempo > 0 ? Math.round((sumaTiempo / countTiempo) / 60 * 10) / 10 : 0,
+      despachados: despachados,
+      precisionPct: precisionPct,
+      enPrepActuales: enPrep,
+      listosActuales: listos,
+      pendientesRevision: pendientesRev
+    };
+  });
+}
+
+// ---- Helpers de filtro por fecha ----
+
+function fechaHoyISO_(tz) {
+  return Utilities.formatDate(new Date(), tz, "yyyy-MM-dd");
+}
+
+function construirRangoFecha_(opciones, tz) {
+  // Prioridad: fecha exacta > dias (ventana atrás)
+  if (opciones.fecha) {
+    const partes = String(opciones.fecha).split("-");
+    if (partes.length === 3) {
+      const desde = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]), 0, 0, 0, 0);
+      const hasta = new Date(desde.getTime() + 24 * 60 * 60 * 1000 - 1);
+      return { desde: desde, hasta: hasta, fechaISO: opciones.fecha };
+    }
+  }
+  const dias = Math.max(1, Number(opciones.dias || 1));
+  const corte = new Date();
+  corte.setHours(0, 0, 0, 0);
+  corte.setDate(corte.getDate() - (dias - 1));
+  return { desde: corte, hasta: null, fechaISO: null };
+}
+
+function ticketEnRango_(r, rango) {
+  const fecha = r[TICKETS_COLS.DOC_DATE - 1] || r[TICKETS_COLS.FECHA_SYNC - 1];
+  if (!(fecha instanceof Date) || isNaN(fecha)) return true;
+  if (rango.hasta) return fecha >= rango.desde && fecha <= rango.hasta;
+  return fecha >= rango.desde;
+}
+
+function ordenTicketsPickup_(a, b) {
+  const orden = { ABIERTO: 1, EN_PREP: 2, LISTO: 3, ENTREGADO: 4, CANCELADO: 5 };
+  const oa = orden[a.estado] || 99;
+  const ob = orden[b.estado] || 99;
+  if (oa !== ob) return oa - ob;
+  return new Date(b.docDate || 0) - new Date(a.docDate || 0);
+}
+
+/**
+ * Detalle de un ticket: cabecera + líneas enriquecidas con stock/ubicación/equivalentes.
  */
 function obtenerTicketDetalle(token, ticketId) {
   return conSesion_(token, ROLES.AUXILIAR, function() {
@@ -259,9 +432,28 @@ function obtenerTicketDetalle(token, ticketId) {
     const tz = Session.getScriptTimeZone();
     const ticket = mapearTicketFila_(fila.data, tz);
 
-    // Líneas
     const lineasSheet = asegurarHojaTicketsLineas_();
     const lineas = obtenerLineasDeTicket_(lineasSheet, ticketId);
+
+    // Enriquece cada línea con info del índice local (stock, ubicación canónica, equivalentes)
+    try {
+      lineas.forEach(function(l) {
+        const info = obtenerArticuloPorIdentificador_(l.itemCode);
+        if (info) {
+          l.stockSap = Number(info.stock || 0);
+          l.ubicacionSap = info.ubicacion || "";
+          l.parteSap = info.parte || "";
+          l.equivalentes = info.equivalentes || [];
+        } else {
+          l.stockSap = null;
+          l.ubicacionSap = "";
+          l.parteSap = "";
+          l.equivalentes = [];
+        }
+      });
+    } catch (e) {
+      // Si el índice falla, el detalle sigue funcionando sin el enriquecimiento
+    }
 
     return { exito: true, ticket: ticket, lineas: lineas };
   });

@@ -18,7 +18,8 @@ const HOJAS = {
 };
 
 const ESTADOS_TICKET = {
-  ABIERTO: "ABIERTO",
+  PENDIENTE_REVISION: "PENDIENTE_REVISION", // recién sincronizado, agente debe clasificar
+  ABIERTO: "ABIERTO",                       // enviado a pickup por agente, auxiliar puede tomar
   EN_PREP: "EN_PREP",
   LISTO: "LISTO",
   ENTREGADO: "ENTREGADO",
