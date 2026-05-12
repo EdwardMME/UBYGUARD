@@ -810,8 +810,8 @@
             <p class="text-sm text-slate-500 dark:text-slate-400">Cotizaciones SAP del día · clasifica y envía a Pickup</p>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
-            <label class="text-xs uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400">Fecha</label>
-            <input type="date" x-model="pedidosAgente.fecha" @change="cargarPedidosRevision()" class="input text-sm">
+            <label class="text-xs uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400" title="Muestra OV/OT desde esta fecha en adelante">Desde</label>
+            <input type="date" x-model="pedidosAgente.fecha" @change="cargarPedidosRevision()" class="input text-sm" title="Filtra desde esta fecha en adelante">
             <button @click="sincronizarPedidosFecha()" :disabled="pedidosAgente.sincronizando" class="btn btn-soft btn-sm" title="Sincroniza cotizaciones (OV) abiertas">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :class="{'spin': pedidosAgente.sincronizando}"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
               <span x-text="pedidosAgente.sincronizando ? 'OV…' : 'Sync OV'"></span>
@@ -917,7 +917,8 @@
             <p class="text-sm text-slate-500 dark:text-slate-400">Pedidos enviados a preparación por el agente · SP0002</p>
           </div>
           <div class="flex items-center gap-2">
-            <input type="date" x-model="pedidos.fechaPickup" @change="cargarPedidos()" class="input text-sm">
+            <label class="text-xs uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400" title="Muestra pickups desde esta fecha en adelante">Desde</label>
+            <input type="date" x-model="pedidos.fechaPickup" @change="cargarPedidos()" class="input text-sm" title="Filtra desde esta fecha en adelante">
             <button @click="cargarPedidos()" class="btn btn-soft btn-sm" title="Refrescar">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
             </button>
@@ -3143,7 +3144,8 @@
 
       // ======================= PICKUP (auxiliar y agente) =======================
       cargarPedidos() {
-        if (!this.pedidos.fechaPickup) this.pedidos.fechaPickup = this._fechaHoyISO();
+        // Default: 7 días atrás (cubre tickets enviados a pickup días anteriores aún sin entregar)
+        if (!this.pedidos.fechaPickup) this.pedidos.fechaPickup = this._fechaHaceNDiasISO(7);
         this.pedidos.cargando = true;
         this.rpc('obtenerTickets', { fecha: this.pedidos.fechaPickup }).then(res => {
           this.pedidos.lista = (res && res.tickets) || [];
@@ -3154,7 +3156,8 @@
 
       // ======================= PEDIDOS (solo AGENTE) =======================
       cargarPedidosRevision() {
-        if (!this.pedidosAgente.fecha) this.pedidosAgente.fecha = this._fechaHoyISO();
+        // Default: 7 días atrás (cubre OVs/OTs todavía abiertas creadas días anteriores)
+        if (!this.pedidosAgente.fecha) this.pedidosAgente.fecha = this._fechaHaceNDiasISO(7);
         this.pedidosAgente.cargando = true;
         this.rpc('obtenerPedidosRevision', { fecha: this.pedidosAgente.fecha, incluirEnviados: true }).then(res => {
           this.pedidosAgente.cargando = false;
@@ -3276,6 +3279,14 @@
 
       _fechaHoyISO() {
         const d = new Date();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return d.getFullYear() + '-' + m + '-' + dd;
+      },
+
+      _fechaHaceNDiasISO(n) {
+        const d = new Date();
+        d.setDate(d.getDate() - Math.max(0, Number(n || 0)));
         const m = String(d.getMonth() + 1).padStart(2, '0');
         const dd = String(d.getDate()).padStart(2, '0');
         return d.getFullYear() + '-' + m + '-' + dd;

@@ -583,13 +583,15 @@ function fechaHoyISO_(tz) {
 }
 
 function construirRangoFecha_(opciones, tz) {
-  // Prioridad: fecha exacta > dias (ventana atrás)
+  // Semántica: "DESDE esa fecha en adelante" (sin límite superior).
+  // Una OV/OT creada hace varios días pero todavía abierta sigue siendo relevante,
+  // así que no tiene sentido filtrar por día exacto. Si el frontend manda fecha,
+  // se interpreta como "ver todo desde esa fecha hasta hoy".
   if (opciones.fecha) {
     const partes = String(opciones.fecha).split("-");
     if (partes.length === 3) {
       const desde = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]), 0, 0, 0, 0);
-      const hasta = new Date(desde.getTime() + 24 * 60 * 60 * 1000 - 1);
-      return { desde: desde, hasta: hasta, fechaISO: opciones.fecha };
+      return { desde: desde, hasta: null, fechaISO: opciones.fecha };
     }
   }
   const dias = Math.max(1, Number(opciones.dias || 1));
