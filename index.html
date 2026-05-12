@@ -812,9 +812,13 @@
           <div class="flex items-center gap-2 flex-wrap">
             <label class="text-xs uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400">Fecha</label>
             <input type="date" x-model="pedidosAgente.fecha" @change="cargarPedidosRevision()" class="input text-sm">
-            <button @click="sincronizarPedidosFecha()" :disabled="pedidosAgente.sincronizando" class="btn btn-soft btn-sm">
+            <button @click="sincronizarPedidosFecha()" :disabled="pedidosAgente.sincronizando" class="btn btn-soft btn-sm" title="Sincroniza cotizaciones (OV) abiertas">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :class="{'spin': pedidosAgente.sincronizando}"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
-              <span x-text="pedidosAgente.sincronizando ? 'Buscando…' : 'Buscar en SAP'"></span>
+              <span x-text="pedidosAgente.sincronizando ? 'OV…' : 'Sync OV'"></span>
+            </button>
+            <button @click="sincronizarOT()" :disabled="pedidosAgente.sincronizandoOT" class="btn btn-soft btn-sm" title="Sincroniza Órdenes de Trabajo (OT) abiertas">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" :class="{'spin': pedidosAgente.sincronizandoOT}"><path d="M16 2H8a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>
+              <span x-text="pedidosAgente.sincronizandoOT ? 'OT…' : 'Sync OT'"></span>
             </button>
             <button @click="devolverTodosARevision()" :disabled="pedidosAgente.migrando"
                     x-show="(pedidosAgente.enviados || []).some(p => p.estado === 'ABIERTO' && !p.auxiliar)"
@@ -825,7 +829,7 @@
           </div>
         </div>
         <div class="rounded-lg bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 p-2 mb-3 text-[11px] text-sky-800 dark:text-sky-300">
-          ℹ️ Por ahora solo se sincronizan <b>cotizaciones (OV)</b> abiertas del almacén SP0002. Las <b>OT</b> requieren que Andre publique el endpoint en su API.
+          ℹ️ <b>OV</b> ya operativo · <b>OT</b> esperando endpoint de Andre (<code>/api/ubyguard/work-orders</code>). Solicitud enviada en <code>docs/solicitud-endpoint-OT-andre.pdf</code> — UBYGUARD lo enciende en cuanto Andre lo publique.
         </div>
 
         <!-- Sección: pendientes de revisión -->
@@ -844,7 +848,7 @@
                       class="text-left rounded-xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 transition-all p-4 hover:shadow-md">
                 <div class="flex items-start justify-between gap-2 mb-2">
                   <div>
-                    <div class="font-bold mono text-lg" x-text="'OV-' + p.docNum"></div>
+                    <div class="font-bold mono text-lg" x-text="(p.docType || 'OV') + '-' + p.docNum"></div>
                     <div class="text-xs text-slate-500 dark:text-slate-400" x-text="p.cardName || p.cardCode"></div>
                   </div>
                   <span class="chip chip-warn text-[10px]">REVISAR</span>
@@ -881,7 +885,7 @@
                       }">
                 <div class="flex items-start justify-between gap-2 mb-2">
                   <div>
-                    <div class="font-bold mono text-lg" x-text="'OV-' + p.docNum"></div>
+                    <div class="font-bold mono text-lg" x-text="(p.docType || 'OV') + '-' + p.docNum"></div>
                     <div class="text-xs text-slate-500 dark:text-slate-400" x-text="p.cardName || p.cardCode"></div>
                   </div>
                   <span class="chip text-[10px]" :class="chipEstadoTicket(p.estado)" x-text="p.estado"></span>
@@ -956,7 +960,7 @@
                     }">
               <div class="flex items-start justify-between gap-2 mb-2">
                 <div>
-                  <div class="font-bold mono text-lg" x-text="'OV-' + p.docNum"></div>
+                  <div class="font-bold mono text-lg" x-text="(p.docType || 'OV') + '-' + p.docNum"></div>
                   <div class="text-xs text-slate-500 dark:text-slate-400" x-text="p.cardName || p.cardCode"></div>
                 </div>
                 <span class="chip text-[10px]" :class="chipEstadoTicket(p.estado)" x-text="p.estado"></span>
@@ -1002,7 +1006,7 @@
       <div class="card p-5 w-full max-w-2xl animate-scaleIn max-h-[85vh] flex flex-col">
         <div class="flex items-start justify-between gap-3 mb-3">
           <div>
-            <h3 class="font-bold text-lg mono" x-text="pedidos.previewAbierto ? 'OV-' + pedidos.previewAbierto.docNum : ''"></h3>
+            <h3 class="font-bold text-lg mono" x-text="pedidos.previewAbierto ? (pedidos.previewAbierto.docType || 'OV') + '-' + pedidos.previewAbierto.docNum : ''"></h3>
             <p class="text-sm text-slate-600 dark:text-slate-300 font-semibold" x-text="pedidos.previewAbierto?.cardName"></p>
             <p class="text-xs text-slate-500 dark:text-slate-400" x-text="(pedidos.previewAbierto?.salesPerson || '') + ' · ' + (pedidos.previewAbierto?.docDate || '')"></p>
           </div>
@@ -1112,7 +1116,7 @@
               <button @click="cerrarDetalleTrabajo()" class="btn btn-ghost btn-sm" title="Volver a la lista">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
               </button>
-              <h3 class="section-title mono" x-text="pedidos.detalleAbierto ? 'OV-' + pedidos.detalleAbierto.docNum : ''"></h3>
+              <h3 class="section-title mono" x-text="pedidos.detalleAbierto ? (pedidos.detalleAbierto.docType || 'OV') + '-' + pedidos.detalleAbierto.docNum : ''"></h3>
             </div>
             <p class="text-sm font-semibold text-slate-700 dark:text-slate-200 mt-1" x-text="pedidos.detalleAbierto?.cardName"></p>
             <p class="text-xs text-slate-500 dark:text-slate-400" x-text="'👤 ' + (pedidos.detalleAbierto?.salesPerson || '—')"></p>
@@ -2218,6 +2222,7 @@
         fecha: '',
         cargando: false,
         sincronizando: false,
+        sincronizandoOT: false,
         migrando: false,
         pendientes: [],
         enviados: []
@@ -3144,6 +3149,25 @@
         }).catch(() => { this.pedidosAgente.cargando = false; this.toast('Error de red', 'err'); });
       },
 
+      sincronizarOT() {
+        if (this.pedidosAgente.sincronizandoOT) return;
+        this.pedidosAgente.sincronizandoOT = true;
+        this.toast('Consultando SAP (OT)…', 'info');
+        const opts = { status: 'open' };
+        if (this.pedidosAgente.fecha) opts.dateFrom = this.pedidosAgente.fecha;
+        this.rpc('sincronizarOTDesdeSap', opts).then(res => {
+          this.pedidosAgente.sincronizandoOT = false;
+          if (res && res.exito) {
+            this.toast('OT: +' + res.creados + ' nuevas, ' + res.actualizados + ' actualizadas', 'ok');
+            this.cargarPedidosRevision();
+          } else if (res && res.pendienteAndre) {
+            this.toast('Endpoint OT pendiente de Andre (ver docs/solicitud-endpoint-OT-andre.pdf)', 'warn');
+          } else {
+            this.toast(res && res.mensaje || 'Error sync OT', 'err');
+          }
+        }).catch(() => { this.pedidosAgente.sincronizandoOT = false; this.toast('Error de red', 'err'); });
+      },
+
       sincronizarPedidosFecha() {
         if (this.pedidosAgente.sincronizando) return;
         this.pedidosAgente.sincronizando = true;
@@ -3164,7 +3188,7 @@
       devolverARevisionDesdePreview() {
         const t = this.pedidos.previewAbierto;
         if (!t) return;
-        if (!confirm('¿Devolver OV-' + t.docNum + ' a revisión? El auxiliar dejará de verlo en Pickup.')) return;
+        if (!confirm('¿Devolver ' + (t.docType || 'OV') + '-' + t.docNum + ' a revisión? El auxiliar dejará de verlo en Pickup.')) return;
         this.rpc('devolverARevision', t.ticketId).then(res => {
           if (res && res.exito) {
             this.toast('Devuelto a revisión', 'ok');
@@ -3197,7 +3221,7 @@
         if (!t) return;
         const incluidas = (this.pedidos.previewLineas || []).filter(l => l.incluida).length;
         if (incluidas === 0) { this.toast('Debes incluir al menos una línea', 'warn'); return; }
-        if (!confirm('¿Enviar OV-' + t.docNum + ' a Pickup con ' + incluidas + ' líneas?')) return;
+        if (!confirm('¿Enviar ' + (t.docType || 'OV') + '-' + t.docNum + ' a Pickup con ' + incluidas + ' líneas?')) return;
         this.rpc('enviarAPickup', t.ticketId).then(res => {
           if (res && res.exito) {
             this.toast('Enviado a Pickup · ' + res.items + ' items', 'ok');
@@ -3431,7 +3455,7 @@
       },
 
       marcarEntregado(ticket) {
-        if (!confirm('¿Confirmas que el cliente retiró el pedido ' + ticket.docNum + '?')) return;
+        if (!confirm('¿Confirmas que el cliente retiró el pedido ' + (ticket.docType || 'OV') + '-' + ticket.docNum + '?')) return;
         this.rpc('marcarTicketEntregado', ticket.ticketId).then(res => {
           if (res && res.exito) {
             this.toast('Entregado al cliente', 'ok');

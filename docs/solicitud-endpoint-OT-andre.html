@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>UBYGUARD · Solicitud de endpoint de Órdenes de Trabajo</title>
+<style>
+  @page { size: Letter; margin: 18mm 16mm 18mm 16mm; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1f2937;
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+  h1 { font-size: 22pt; margin: 0 0 4pt; color: #b91c1c; }
+  h2 { font-size: 14pt; margin: 18pt 0 8pt; color: #b91c1c; border-bottom: 1.5pt solid #fecaca; padding-bottom: 3pt; }
+  h3 { font-size: 12pt; margin: 14pt 0 6pt; color: #374151; }
+  p  { margin: 0 0 8pt; }
+  ul, ol { margin: 0 0 10pt 18pt; padding: 0; }
+  li { margin-bottom: 4pt; }
+  code, pre, .mono { font-family: "Consolas", "SF Mono", "Menlo", monospace; font-size: 9.5pt; }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 10pt 12pt;
+    border-radius: 4pt;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 6pt 0 10pt;
+    page-break-inside: avoid;
+  }
+  .sql-keyword { color: #93c5fd; font-weight: bold; }
+  .sql-string  { color: #fcd34d; }
+  .sql-comment { color: #94a3b8; font-style: italic; }
+  .json-key    { color: #fcd34d; }
+  .json-str    { color: #86efac; }
+  .json-num    { color: #fda4af; }
+  .badge {
+    display: inline-block;
+    padding: 1pt 6pt;
+    border-radius: 3pt;
+    background: #fef2f2;
+    color: #b91c1c;
+    font-size: 8pt;
+    font-weight: bold;
+    letter-spacing: .5pt;
+    text-transform: uppercase;
+    border: 0.5pt solid #fecaca;
+  }
+  .cover {
+    border-left: 4pt solid #b91c1c;
+    padding-left: 14pt;
+    margin-bottom: 16pt;
+  }
+  .meta-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 4pt 0 16pt;
+    font-size: 10pt;
+  }
+  .meta-table td {
+    padding: 4pt 8pt;
+    border-bottom: 0.5pt solid #e5e7eb;
+  }
+  .meta-table td:first-child {
+    font-weight: bold;
+    color: #6b7280;
+    width: 32%;
+    text-transform: uppercase;
+    font-size: 8.5pt;
+    letter-spacing: .5pt;
+  }
+  .callout {
+    background: #fff7ed;
+    border-left: 3pt solid #f59e0b;
+    padding: 8pt 12pt;
+    margin: 8pt 0 12pt;
+    border-radius: 0 3pt 3pt 0;
+    font-size: 10pt;
+  }
+  .callout.info { background: #eff6ff; border-color: #3b82f6; }
+  .callout.ok   { background: #ecfdf5; border-color: #10b981; }
+  table.params {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 4pt 0 12pt;
+    font-size: 9.5pt;
+  }
+  table.params th, table.params td {
+    border: 0.5pt solid #d1d5db;
+    padding: 5pt 7pt;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.params th {
+    background: #f9fafb;
+    font-size: 8.5pt;
+    text-transform: uppercase;
+    letter-spacing: .4pt;
+    color: #6b7280;
+  }
+  table.params td.mono { font-family: "Consolas", monospace; font-size: 9pt; color: #1f2937; }
+  .small { font-size: 9pt; color: #6b7280; }
+  footer {
+    position: fixed;
+    bottom: 8mm;
+    left: 16mm;
+    right: 16mm;
+    font-size: 8pt;
+    color: #9ca3af;
+    border-top: 0.5pt solid #e5e7eb;
+    padding-top: 4pt;
+    display: flex;
+    justify-content: space-between;
+  }
+  .pagebreak { page-break-after: always; }
+</style>
+</head>
+<body>
+
+<footer>
+  <span>UBYGUARD · Solicitud de endpoint OT · Distribuidora Platino</span>
+  <span>Eduardo Mejía → Andre Lopez</span>
+</footer>
+
+<div class="cover">
+  <span class="badge">Solicitud técnica</span>
+  <h1>Endpoint de Órdenes de Trabajo (OT) para UBYGUARD</h1>
+  <p class="small">Extensión de la API SAP B1 publicada por Andre — paridad con <code>/api/ubyguard/quotations</code></p>
+</div>
+
+<table class="meta-table">
+  <tr><td>Para</td><td>Andre Lopez · API SAP B1</td></tr>
+  <tr><td>De</td><td>Eduardo Mejía · Distribuidora Platino (UBYGUARD)</td></tr>
+  <tr><td>Fecha</td><td>12 / mayo / 2026</td></tr>
+  <tr><td>Asunto</td><td>Nuevo endpoint <code>GET /api/ubyguard/work-orders</code></td></tr>
+  <tr><td>Prioridad</td><td>Media — bloquea visibilidad de OT en módulo Pedidos</td></tr>
+  <tr><td>API base actual</td><td><code>https://sap-api.eugeniachat.ai</code></td></tr>
+</table>
+
+<h2>1 · Contexto</h2>
+
+<p>UBYGUARD ya consume <code>/api/ubyguard/quotations</code> para listar cotizaciones (OV) abiertas del almacén <b>SPS0002</b> y mostrarlas al agente como pedidos a preparar. El siguiente paso operativo es incluir las <b>Órdenes de Trabajo (OT)</b> del módulo SCGD, que hoy el agente solo puede consultar desde el cliente de SAP B1.</p>
+
+<p>Necesitamos un endpoint paralelo a <code>quotations</code> que devuelva las OT abiertas con sus líneas, filtrando por almacén y fecha, para integrarlas en el mismo flujo de revisión y pickup. La integración del lado de UBYGUARD ya está dejada armada: en cuanto publiques el endpoint con el shape propuesto, se enciende con un flag.</p>
+
+<div class="callout info">
+  <b>Resumen del pedido:</b> nuevo endpoint <code>GET /api/ubyguard/work-orders</code>, con shape JSON casi idéntico al de <code>quotations</code>, autenticado con la misma <code>X-API-Key</code>, soportando filtros por fecha / estado / almacén.
+</div>
+
+<h2>2 · Endpoint propuesto</h2>
+
+<table class="params">
+  <tr><th>Atributo</th><th>Valor</th></tr>
+  <tr><td>Método</td><td class="mono">GET</td></tr>
+  <tr><td>Path</td><td class="mono">/api/ubyguard/work-orders</td></tr>
+  <tr><td>Autenticación</td><td><code>X-API-Key</code> (la misma que ya emites)</td></tr>
+  <tr><td>Content-Type</td><td><code>application/json</code></td></tr>
+  <tr><td>Códigos</td><td>200 OK · 401 sin auth · 404 no encontrado · 500 error SAP</td></tr>
+</table>
+
+<h3>Query string</h3>
+<table class="params">
+  <tr><th>Parámetro</th><th>Tipo</th><th>Default</th><th>Descripción</th></tr>
+  <tr><td class="mono">warehouse</td><td>string</td><td><code>SPS0002</code></td><td>Filtra líneas por <code>WhsCode</code>. Si no se pasa, asume SPS0002.</td></tr>
+  <tr><td class="mono">status</td><td>string</td><td><code>open</code></td><td>Solo OT abiertas (<code>DocStatus = 'O'</code>).</td></tr>
+  <tr><td class="mono">dateFrom</td><td>YYYY-MM-DD</td><td>—</td><td>Filtra <code>DocDate &gt;= dateFrom</code>. Útil para pull diario / por fecha específica.</td></tr>
+  <tr><td class="mono">dateTo</td><td>YYYY-MM-DD</td><td>—</td><td>Opcional, <code>DocDate &lt;= dateTo</code>.</td></tr>
+  <tr><td class="mono">limit</td><td>int</td><td><code>200</code></td><td>Máximo de OT por respuesta. Cap recomendado: 500.</td></tr>
+  <tr><td class="mono">offset</td><td>int</td><td><code>0</code></td><td>Paginación.</td></tr>
+</table>
+
+<div class="pagebreak"></div>
+
+<h2>3 · Query SAP base (sacada del informe en HANA)</h2>
+
+<p>Esta es la consulta tal cual la corre el agente en el cliente SAP — sirve de referencia para que veas los joins y los campos custom. Lo que está abajo es la parte visible del SELECT; te dejo los campos que necesitamos en el JSON al final.</p>
+
+<pre><span class="sql-keyword">SELECT</span>
+  <span class="sql-string">'OT '</span> Documento,
+  Suc.<span class="sql-string">"Name"</span>            LOCAL,
+  T1.<span class="sql-string">"U_SCGD_NoOT"</span>      NoOT,
+  T0.<span class="sql-string">"DocDate"</span>          FechaApertura,
+  T0.<span class="sql-string">"CardCode"</span>         <span class="sql-string">"Codigo SAP"</span>,
+  Cliente.<span class="sql-string">"LicTradNum"</span>  <span class="sql-string">"RUT"</span>,
+  T0.<span class="sql-string">"CardName"</span>         <span class="sql-string">"Razon S. Factura"</span>,
+  T0.<span class="sql-string">"U_SCGD_NCliOT"</span>    <span class="sql-string">"Cliente Vehiculo"</span>,
+  TipoOT.<span class="sql-string">"Name"</span>          Imputacion,
+  <span class="sql-keyword">CASE</span> T2.<span class="sql-string">"U_SCGD_TipoArticulo"</span>
+    <span class="sql-keyword">WHEN</span> 1 <span class="sql-keyword">THEN</span> <span class="sql-string">'REPUESTOS'</span>
+    <span class="sql-keyword">WHEN</span> 2 <span class="sql-keyword">THEN</span> <span class="sql-string">'MANO DE OBRA'</span>
+    <span class="sql-comment">/* … resto de tipos … */</span>
+  <span class="sql-keyword">END</span> Concepto,
+  T2.<span class="sql-string">"ItemName"</span>          <span class="sql-string">"Descripcion de Concepto"</span>,
+  T1.<span class="sql-string">"ItemCode"</span>,
+  T1.<span class="sql-string">"Quantity"</span>,
+  T1.<span class="sql-string">"WhsCode"</span>,
+  T1.<span class="sql-string">"BinCode"</span>
+<span class="sql-keyword">FROM</span>   <span class="sql-comment">/* doc header SCGD */</span> T0
+  <span class="sql-keyword">INNER JOIN</span> <span class="sql-comment">/* doc lines SCGD */</span> T1 <span class="sql-keyword">ON</span> T0.<span class="sql-string">"DocEntry"</span> = T1.<span class="sql-string">"DocEntry"</span>
+  <span class="sql-keyword">INNER JOIN</span> OITM    T2      <span class="sql-keyword">ON</span> T1.<span class="sql-string">"ItemCode"</span> = T2.<span class="sql-string">"ItemCode"</span>
+  <span class="sql-keyword">INNER JOIN</span> OCRD    Cliente <span class="sql-keyword">ON</span> T0.<span class="sql-string">"CardCode"</span> = Cliente.<span class="sql-string">"CardCode"</span>
+  <span class="sql-keyword">INNER JOIN</span> <span class="sql-string">"@SCGD_TIPOOT"</span> TipoOT <span class="sql-keyword">ON</span> T0.<span class="sql-string">"U_SCGD_TipoOT"</span> = TipoOT.<span class="sql-string">"Code"</span>
+  <span class="sql-keyword">INNER JOIN</span> <span class="sql-comment">/* sucursales */</span> Suc <span class="sql-keyword">ON</span> T0.<span class="sql-string">"BPLId"</span> = Suc.<span class="sql-string">"BPLId"</span>
+<span class="sql-keyword">WHERE</span> T1.<span class="sql-string">"WhsCode"</span> = <span class="sql-string">'SPS0002'</span>
+  <span class="sql-keyword">AND</span> T0.<span class="sql-string">"DocStatus"</span> = <span class="sql-string">'O'</span>
+  <span class="sql-keyword">AND</span> T0.<span class="sql-string">"DocDate"</span> &gt;= :dateFrom
+<span class="sql-keyword">ORDER BY</span> T0.<span class="sql-string">"DocDate"</span> <span class="sql-keyword">DESC</span>;</pre>
+
+<div class="callout">
+  <b>Sobre las tablas SCGD:</b> los campos <code>U_SCGD_*</code> son UDFs de un add-on propio. Necesitamos el nombre real de la tabla header / lines para documentar en UBYGUARD; si el header vive en <code>OWOR</code>, <code>ORCT</code> o en un UDO propio, déjanos saber para mantener la trazabilidad.
+</div>
+
+<h2>4 · Shape JSON de respuesta</h2>
+
+<p>Igual al de <code>quotations</code> para que el integrador (mismo cliente HTTP) sólo cambie el path. Añade <code>docType</code> y campos específicos de OT.</p>
+
+<pre>{
+  <span class="json-key">"data"</span>: [
+    {
+      <span class="json-key">"docType"</span>: <span class="json-str">"OT"</span>,
+      <span class="json-key">"docNum"</span>: <span class="json-str">"3100-01"</span>,
+      <span class="json-key">"docEntry"</span>: <span class="json-num">12345</span>,
+      <span class="json-key">"docDate"</span>: <span class="json-str">"2026-05-11"</span>,
+      <span class="json-key">"noOT"</span>: <span class="json-str">"CN101312"</span>,
+      <span class="json-key">"sucursal"</span>: <span class="json-str">"San Pedro Sula"</span>,
+      <span class="json-key">"cardCode"</span>: <span class="json-str">"05011980023922"</span>,
+      <span class="json-key">"cardName"</span>: <span class="json-str">"EDWIN ENRIQUE ZAVALA ARMIJO"</span>,
+      <span class="json-key">"rut"</span>: <span class="json-str">"05011980023922"</span>,
+      <span class="json-key">"clienteVehiculo"</span>: <span class="json-str">"EDWIN ENRIQUE ZAVALA ARMIJO"</span>,
+      <span class="json-key">"imputacion"</span>: <span class="json-str">"SPSS CXC Garantia Sinotruck"</span>,
+      <span class="json-key">"comments"</span>: <span class="json-str">""</span>,
+      <span class="json-key">"docStatus"</span>: <span class="json-str">"O"</span>,
+      <span class="json-key">"lines"</span>: [
+        {
+          <span class="json-key">"lineNum"</span>: <span class="json-num">0</span>,
+          <span class="json-key">"itemCode"</span>: <span class="json-str">"RSA105324"</span>,
+          <span class="json-key">"itemDescription"</span>: <span class="json-str">"SILICONE GRIS"</span>,
+          <span class="json-key">"quantity"</span>: <span class="json-num">1</span>,
+          <span class="json-key">"warehouseCode"</span>: <span class="json-str">"SPS0002"</span>,
+          <span class="json-key">"binCode"</span>: <span class="json-str">"N1-B1-D1"</span>,
+          <span class="json-key">"tipoArticulo"</span>: <span class="json-num">1</span>,
+          <span class="json-key">"concepto"</span>: <span class="json-str">"REPUESTOS"</span>
+        },
+        {
+          <span class="json-key">"lineNum"</span>: <span class="json-num">1</span>,
+          <span class="json-key">"itemCode"</span>: <span class="json-str">"SER100033"</span>,
+          <span class="json-key">"itemDescription"</span>: <span class="json-str">"MANO DE OBRA"</span>,
+          <span class="json-key">"quantity"</span>: <span class="json-num">3</span>,
+          <span class="json-key">"warehouseCode"</span>: <span class="json-str">"SPS0002"</span>,
+          <span class="json-key">"binCode"</span>: <span class="json-str">""</span>,
+          <span class="json-key">"tipoArticulo"</span>: <span class="json-num">2</span>,
+          <span class="json-key">"concepto"</span>: <span class="json-str">"MANO DE OBRA"</span>
+        }
+      ]
+    }
+  ],
+  <span class="json-key">"meta"</span>: {
+    <span class="json-key">"total"</span>: <span class="json-num">24</span>,
+    <span class="json-key">"limit"</span>: <span class="json-num">200</span>,
+    <span class="json-key">"offset"</span>: <span class="json-num">0</span>,
+    <span class="json-key">"warehouse"</span>: <span class="json-str">"SPS0002"</span>
+  }
+}</pre>
+
+<div class="callout ok">
+  <b>Importante:</b> incluir <u>todas</u> las líneas en <code>lines[]</code>, incluso las de mano de obra / servicios. Nosotros las marcamos como excluidas usando <code>tipoArticulo</code> en el campo <code>concepto</code>. <b>No filtres por tipo del lado de SAP</b> — necesitamos visibilidad completa para clasificar.
+</div>
+
+<div class="pagebreak"></div>
+
+<h2>5 · Errores</h2>
+
+<p>Mismo formato que ya manejas en <code>quotations</code>:</p>
+
+<pre>{
+  <span class="json-key">"error"</span>: <span class="json-str">"Mensaje legible para el agente"</span>,
+  <span class="json-key">"code"</span>:  <span class="json-str">"OT_NOT_FOUND"</span>
+}</pre>
+
+<p>Códigos sugeridos:</p>
+<ul>
+  <li><code>OT_NOT_FOUND</code> · 404, OT no existe</li>
+  <li><code>WAREHOUSE_INVALID</code> · 400, almacén inexistente</li>
+  <li><code>SAP_UNAVAILABLE</code> · 502/503, HANA caído</li>
+  <li><code>UNAUTHORIZED</code> · 401, API key inválida</li>
+</ul>
+
+<h2>6 · Notas operativas</h2>
+
+<ul>
+  <li><b>Caché del lado de Andre:</b> ideal TTL ≤ 60s. La OT abierta se va resolviendo en SAP durante el día y el agente refresca varias veces.</li>
+  <li><b>Concurrencia:</b> UBYGUARD hace polling cada vez que el agente abre la vista (no hay trigger horario para OT por ahora). Sin throughput exigente, &lt; 30 req/día.</li>
+  <li><b>Filtro por sucursal:</b> hoy operamos SP0002 (SPS), pero conviene exponer el filtro <code>warehouse</code> por si abren otros almacenes.</li>
+  <li><b>Cancelación:</b> si una OT pasa a estado cerrado en SAP entre dos pulls, UBYGUARD la marca como CANCELADA en su hoja interna (siempre que aún no se haya tomado para preparación).</li>
+  <li><b>Compatibilidad con <code>/quotations</code>:</b> mismo header de auth (<code>X-API-Key</code>), mismo timezone (<code>America/Tegucigalpa</code>), mismas convenciones de fecha (<code>YYYY-MM-DD</code>).</li>
+</ul>
+
+<h2>7 · Endpoint de prueba sugerido</h2>
+
+<p>Antes de integrarlo al frontend, validamos con un smoke test en el editor de Apps Script (idéntico al de cotizaciones):</p>
+
+<pre>GET /api/ubyguard/work-orders?status=open&amp;limit=1
+Headers:
+  X-API-Key: &lt;la misma que de quotations&gt;
+
+Respuesta esperada (200):
+  data: [ 1 OT con sus líneas ]
+  meta.total: N</pre>
+
+<h2>8 · Estado del lado de UBYGUARD</h2>
+
+<p>Ya está dejado <b>armado y commited en el repo</b>:</p>
+
+<ul>
+  <li><code>sap_client.gs</code> · cliente <code>sapListarOT_(filtros)</code> apuntando a <code>/api/ubyguard/work-orders</code>.</li>
+  <li><code>tickets.gs</code> · función <code>sincronizarOTDesdeSap(opts)</code> con manejo de error amigable mientras el endpoint no exista (404).</li>
+  <li>Frontend · botón "Sincronizar OT" en la vista Pedidos del agente, con feedback visual cuando el endpoint todavía no está publicado.</li>
+  <li>Schema · UBYGUARD soporta mezclar OT y OV en las mismas hojas (IDs prefijados con <code>OT-</code> para evitar colisión).</li>
+</ul>
+
+<p>Cuando publiques el endpoint, no se necesita despliegue nuevo: arranca a funcionar en el siguiente pull del agente.</p>
+
+<h2>9 · Contacto</h2>
+
+<table class="meta-table">
+  <tr><td>Solicitante</td><td>Eduardo Mejía</td></tr>
+  <tr><td>Email</td><td><code>cramirez@grupoplatino.hn</code></td></tr>
+  <tr><td>Repo público</td><td><code>github.com/EdwardMME/UBYGUARD</code></td></tr>
+  <tr><td>Versión actual</td><td>Pedidos v2 · módulo Pickup separado del de revisión</td></tr>
+</table>
+
+<p class="small" style="margin-top: 20pt; text-align: center; color: #9ca3af;">
+  Documento generado automáticamente por UBYGUARD · 2026-05-12
+</p>
+
+</body>
+</html>

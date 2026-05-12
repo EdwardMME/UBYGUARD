@@ -126,6 +126,24 @@ function sapObtenerCliente_(cardCode) {
 }
 
 /**
+ * Lista Órdenes de Trabajo (OT) abiertas con líneas en SPS0002.
+ * Endpoint PENDIENTE DE PUBLICACIÓN por Andre — ver docs/solicitud-endpoint-OT-andre.pdf
+ * Mismo shape que /quotations + campos extra (docType, noOT, sucursal, imputacion, concepto).
+ * @param {Object} filtros { status, dateFrom, dateTo, warehouse, limit, offset }
+ */
+function sapListarOT_(filtros) {
+  const f = filtros || {};
+  const qs = [];
+  qs.push("warehouse=" + encodeURIComponent(f.warehouse || SAP_WAREHOUSE));
+  if (f.status) qs.push("status=" + encodeURIComponent(f.status));
+  if (f.dateFrom) qs.push("dateFrom=" + encodeURIComponent(f.dateFrom));
+  if (f.dateTo) qs.push("dateTo=" + encodeURIComponent(f.dateTo));
+  if (f.limit) qs.push("limit=" + f.limit);
+  if (f.offset) qs.push("offset=" + f.offset);
+  return sapFetch_("/api/ubyguard/work-orders?" + qs.join("&"));
+}
+
+/**
  * Listado masivo de items para sync diario de DATA_SAP.
  * @param {Object} filtros { limit (max 1000), offset, modifiedSince }
  */

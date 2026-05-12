@@ -85,9 +85,11 @@ function sincronizarTicketsDesdeSap(opts) {
       }
 
       // Detecta tickets locales aún no tomados que ya no vienen de SAP → marcar CANCELADO
+      // SCOPE: sólo cancela OV (este es el sync de cotizaciones, no debe tocar OTs)
       let cancelados = 0;
       Object.keys(indiceLocal).forEach(function(tid) {
         if (docNumsRemotos[tid]) return;
+        if (obtenerDocTypeDeTicketId_(tid) !== "OV") return;
         const est = indiceLocal[tid].estado;
         if (est === ESTADOS_TICKET.PENDIENTE_REVISION || est === ESTADOS_TICKET.ABIERTO) {
           ticketsSheet.getRange(indiceLocal[tid].row, TICKETS_COLS.ESTADO).setValue(ESTADOS_TICKET.CANCELADO);
@@ -122,6 +124,99 @@ function instalarTriggerSyncTickets() {
   ScriptApp.newTrigger("sincronizarTicketsDesdeSap").timeBased().everyHours(1).create();
   console.log("✅ Trigger horario instalado");
   return "Trigger instalado: sincronización cada 1 hora";
+}
+
+/**
+ * Sincroniza Órdenes de Trabajo (OT) abiertas desde SAP — paralelo a sincronizarTicketsDesdeSap.
+ * Usa ticketId = "OT-" + docNum para evitar colisión con cotizaciones.
+ * Si el endpoint no está publicado por Andre todavía, devuelve un mensaje amigable
+ * apuntando a la solicitud documentada en docs/solicitud-endpoint-OT-andre.pdf
+ */
+function sincronizarOTDesdeSap(opts) {
+  try {
+    const o = opts || {};
+    const t0 = Date.now();
+    const filtros = { status: o.status || "open", limit: 200 };
+    if (o.dateFrom) filtros.dateFrom = o.dateFrom;
+    if (o.dateTo) filtros.dateTo = o.dateTo;
+    const resp = sapListarOT_(filtros);
+    const remoto = (resp && resp.data) || [];
+
+    const ticketsSheet = asegurarHojaTickets_();
+    const lineasSheet = asegurarHojaTicketsLineas_();
+    const lock = LockService.getDocumentLock();
+    let creados = 0, actualizados = 0, saltados = 0;
+
+    try {
+      lock.waitLock(30000);
+      const indiceLocal = indiceTicketsExistentes_(ticketsSheet);
+      const ticketIdsRemotos = {};
+
+      for (let i = 0; i < remoto.length; i++) {
+        const q = remoto[i];
+        if (!q || !q.docNum) continue;
+        const lineasSp = (q.lines || []).filter(function(l) {
+          return l && l.warehouseCode === WAREHOUSE_SP;
+        });
+        if (lineasSp.length === 0) { saltados++; continue; }
+
+        const ticketId = "OT-" + String(q.docNum);
+        ticketIdsRemotos[ticketId] = true;
+        const existente = indiceLocal[ticketId];
+
+        if (!existente) {
+          crearTicket_(ticketsSheet, lineasSheet, ticketId, q, lineasSp);
+          creados++;
+        } else {
+          if (existente.estado === ESTADOS_TICKET.PENDIENTE_REVISION || existente.estado === ESTADOS_TICKET.ABIERTO) {
+            actualizarTicketAbierto_(ticketsSheet, lineasSheet, existente.row, ticketId, q, lineasSp);
+            actualizados++;
+          } else {
+            ticketsSheet.getRange(existente.row, TICKETS_COLS.FECHA_SYNC).setValue(new Date());
+          }
+        }
+      }
+
+      // Scope: este sync sólo cancela OT (no toca OV)
+      let cancelados = 0;
+      Object.keys(indiceLocal).forEach(function(tid) {
+        if (ticketIdsRemotos[tid]) return;
+        if (obtenerDocTypeDeTicketId_(tid) !== "OT") return;
+        const est = indiceLocal[tid].estado;
+        if (est === ESTADOS_TICKET.PENDIENTE_REVISION || est === ESTADOS_TICKET.ABIERTO) {
+          ticketsSheet.getRange(indiceLocal[tid].row, TICKETS_COLS.ESTADO).setValue(ESTADOS_TICKET.CANCELADO);
+          cancelados++;
+        }
+      });
+
+      cacheInvalidarSimple_(CACHE_KEYS.RESUMEN_INICIO);
+      const ms = Date.now() - t0;
+      console.log("[OT sync] " + ms + "ms · creados=" + creados + " actualizados=" + actualizados + " cancelados=" + cancelados + " saltados=" + saltados);
+      return { exito: true, creados: creados, actualizados: actualizados, cancelados: cancelados, saltados: saltados, ms: ms };
+    } finally {
+      try { lock.releaseLock(); } catch (e) {}
+    }
+  } catch (e) {
+    const msg = String(e && e.message ? e.message : e);
+    if (/HTTP 404|work-orders|endpoint/i.test(msg)) {
+      return {
+        exito: false,
+        pendienteAndre: true,
+        mensaje: "El endpoint /api/ubyguard/work-orders aún no está publicado por Andre. Solicitud técnica en docs/solicitud-endpoint-OT-andre.pdf"
+      };
+    }
+    console.error("[OT sync] Error:", msg);
+    return { exito: false, mensaje: msg };
+  }
+}
+
+/**
+ * Determina el tipo de documento (OT vs OV) por convención del ticketId:
+ * - "OT-..." → OT
+ * - cualquier otra cosa → OV (incluye data legacy con ticketId = docNum sin prefijo)
+ */
+function obtenerDocTypeDeTicketId_(ticketId) {
+  return /^OT-/.test(String(ticketId || "")) ? "OT" : "OV";
 }
 
 function crearTicket_(ticketsSheet, lineasSheet, ticketId, q, lineas) {
@@ -893,8 +988,10 @@ function parseBoolIncluida_(raw, itemCode) {
 }
 
 function mapearTicketFila_(r, tz) {
+  const tid = r[TICKETS_COLS.TICKET_ID - 1];
   return {
-    ticketId: r[TICKETS_COLS.TICKET_ID - 1],
+    ticketId: tid,
+    docType: obtenerDocTypeDeTicketId_(tid),
     docNum: r[TICKETS_COLS.DOC_NUM - 1],
     docEntry: r[TICKETS_COLS.DOC_ENTRY - 1],
     docDate: formatearFechaSimple_(r[TICKETS_COLS.DOC_DATE - 1], tz),
