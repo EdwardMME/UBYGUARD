@@ -1465,10 +1465,10 @@
           </div>
           <div>
             <label class="label">Responsable</label>
-            <select x-model="individual.responsable" class="input">
-              <option value="">Selecciona…</option>
-              <template x-for="r in responsables" :key="r"><option :value="r" x-text="r"></option></template>
-            </select>
+            <input type="text" x-model="individual.responsable" readonly
+                   x-effect="individual.responsable = sesion.nombre || sesion.usuario || ''"
+                   class="input bg-slate-100 dark:bg-slate-800 cursor-not-allowed text-slate-600 dark:text-slate-300"
+                   title="El responsable es siempre quien tiene la sesión activa">
           </div>
           <div>
             <label class="label">Tipo de transacción</label>
@@ -1535,11 +1535,11 @@
             <input x-model="carrito.destino" placeholder="Ej. PRUEBA-3" class="input mono uppercase">
           </div>
           <div>
-            <label class="label">Responsable <span class="text-red-500">*</span></label>
-            <select x-model="carrito.responsable" class="input">
-              <option value="">Selecciona…</option>
-              <template x-for="r in responsables" :key="r"><option :value="r" x-text="r"></option></template>
-            </select>
+            <label class="label">Responsable</label>
+            <input type="text" x-model="carrito.responsable" readonly
+                   x-effect="carrito.responsable = sesion.nombre || sesion.usuario || ''"
+                   class="input bg-slate-100 dark:bg-slate-800 cursor-not-allowed text-slate-600 dark:text-slate-300"
+                   title="El responsable es siempre quien tiene la sesión activa">
           </div>
           <div>
             <label class="label">Documento (opcional)</label>

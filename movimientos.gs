@@ -20,8 +20,10 @@ function registrarMovimiento(token, datos) {
     const destino = validarTexto_(datos.destino, REGEX.UBICACION, "ubicación destino");
     if (!destino.ok) return { exito: false, mensaje: destino.mensaje };
 
-    const responsable = validarTexto_(datos.responsable, null, "responsable");
-    if (!responsable.ok) return { exito: false, mensaje: responsable.mensaje };
+    // Responsable lo enforcea el backend desde la sesión, no se acepta del cliente.
+    // Trazabilidad real: quien registra el movimiento es quien tiene la sesión activa.
+    const responsableValor = sesion.nombre || sesion.usuario;
+    if (!responsableValor) return { exito: false, mensaje: "Sesión sin nombre asociado" };
 
     const cantidad = validarCantidad_(datos.cantidad, "cantidad");
     if (!cantidad.ok) return { exito: false, mensaje: cantidad.mensaje };
@@ -50,7 +52,7 @@ function registrarMovimiento(token, datos) {
       cantidad.valor,
       escaparFormula_(articulo.ubicacion || ""),
       escaparFormula_(destino.valor.toUpperCase()),
-      escaparFormula_(responsable.valor),
+      escaparFormula_(responsableValor),
       ESTADO_MOVIMIENTO.UBICADO,
       false,
       "",
@@ -94,8 +96,9 @@ function registrarMovimientosBatch(token, payload) {
     const destino = validarTexto_(payload.destino, REGEX.UBICACION, "ubicación destino");
     if (!destino.ok) return { exito: false, mensaje: destino.mensaje };
 
-    const responsable = validarTexto_(payload.responsable, null, "responsable");
-    if (!responsable.ok) return { exito: false, mensaje: responsable.mensaje };
+    // Responsable lo enforcea el backend desde la sesión (ignora param del cliente)
+    const responsable = { ok: true, valor: sesion.nombre || sesion.usuario };
+    if (!responsable.valor) return { exito: false, mensaje: "Sesión sin nombre asociado" };
 
     const documento = normalizarTexto(payload.documento || "");
     const tipo = normalizarMayus(payload.tipo) || TIPO_MOVIMIENTO.INDIVIDUAL;

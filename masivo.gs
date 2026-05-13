@@ -137,7 +137,7 @@ function guardarEdicionTrabajoMasivo(token, rowNumber, observacion) {
 }
 
 function registrarTrabajoMasivo(token, rowNumber, cantidadRegistrar, ubicacionFinal, responsable, observacion) {
-  return conSesion_(token, ROLES.AUXILIAR, function() {
+  return conSesion_(token, ROLES.AUXILIAR, function(sesion) {
     const trabajoSheet = asegurarHojaTrabajoMasivo_();
     const row = obtenerFilaTrabajoMasivoPorNumero_(trabajoSheet, rowNumber);
 
@@ -146,8 +146,9 @@ function registrarTrabajoMasivo(token, rowNumber, cantidadRegistrar, ubicacionFi
       return { exito: false, mensaje: "La línea ya está completada o bloqueada" };
     }
 
-    const respVal = validarTexto_(responsable, null, "responsable");
-    if (!respVal.ok) return { exito: false, mensaje: respVal.mensaje };
+    // Responsable lo enforcea el backend desde la sesión (ignora param del cliente)
+    const respVal = { ok: true, valor: sesion.nombre || sesion.usuario };
+    if (!respVal.valor) return { exito: false, mensaje: "Sesión sin nombre asociado" };
 
     const ubicVal = validarTexto_(ubicacionFinal, REGEX.UBICACION, "ubicación destino");
     if (!ubicVal.ok) return { exito: false, mensaje: ubicVal.mensaje };
