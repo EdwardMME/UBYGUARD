@@ -20,6 +20,9 @@ function obtenerPendientesSap(token, limite) {
       const row = data[i];
       if (!tieneDatosHistorial(row)) continue;
       if (row[12] === true) continue;
+      // Excluye los movimientos generados por Picking (tipo PEDIDO) — esos no
+      // necesitan acción manual en SAP, la cotización se factura por otro lado
+      if (String(row[2] || "").toUpperCase() === "PEDIDO") continue;
       const mov = mapearMovimientoHistorial(row, timeZone);
       mov.rowNumber = filaInicial + i;
       resultados.push(mov);

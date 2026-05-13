@@ -56,7 +56,8 @@ function obtenerResumenInicio(token) {
           const row = data[i];
           if (!tieneDatosHistorial(row)) continue;
           if (esFechaDeHoy(row[1], hoy, timeZone)) movimientosHoy++;
-          if (row[12] !== true) pendientesSap++;
+          // Pendientes SAP excluye tipo PEDIDO (Picking): esos no van a la cola
+          if (row[12] !== true && String(row[2] || "").toUpperCase() !== "PEDIDO") pendientesSap++;
           const diasAtras = diferenciaDias_(row[1], ahora);
           if (diasAtras != null && diasAtras >= 0 && diasAtras < 7) {
             tendencia7d[6 - diasAtras]++;

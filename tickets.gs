@@ -397,7 +397,7 @@ function enviarAPickup(token, ticketId) {
       if (!fila) return { exito: false, mensaje: "Ticket no encontrado" };
       const estado = String(fila.data[TICKETS_COLS.ESTADO - 1] || "");
       if (estado !== ESTADOS_TICKET.PENDIENTE_REVISION) {
-        return { exito: false, mensaje: "El ticket ya fue enviado a pickup o no aplica" };
+        return { exito: false, mensaje: "La orden ya fue enviada a Picking o no aplica" };
       }
       const todas = obtenerLineasDeTicket_(lineasSheet, ticketId);
       const incluidas = todas.filter(function(l) { return l.incluida; });
@@ -407,7 +407,7 @@ function enviarAPickup(token, ticketId) {
       sheet.getRange(fila.row, TICKETS_COLS.ESTADO).setValue(ESTADOS_TICKET.ABIERTO);
       sheet.getRange(fila.row, TICKETS_COLS.ITEMS_TOTAL).setValue(incluidas.length);
       cacheInvalidarSimple_(CACHE_KEYS.RESUMEN_INICIO);
-      return { exito: true, mensaje: "Enviado a pickup", items: incluidas.length };
+      return { exito: true, mensaje: "Enviado a Picking", items: incluidas.length };
     } finally {
       try { lock.releaseLock(); } catch (e) {}
     }
@@ -429,7 +429,7 @@ function devolverARevision(token, ticketId) {
       if (!fila) return { exito: false, mensaje: "Ticket no encontrado" };
       const estado = String(fila.data[TICKETS_COLS.ESTADO - 1] || "");
       if (estado !== ESTADOS_TICKET.ABIERTO) {
-        return { exito: false, mensaje: "Solo se pueden devolver pedidos ABIERTOS sin tomar" };
+        return { exito: false, mensaje: "Solo se pueden devolver órdenes ABIERTAS sin tomar" };
       }
       const aux = String(fila.data[TICKETS_COLS.AUXILIAR - 1] || "").trim();
       if (aux) {
@@ -699,7 +699,7 @@ function tomarTicket(token, ticketId) {
       sheet.getRange(fila.row, TICKETS_COLS.AUXILIAR).setValue(escaparFormula_(sesion.nombre || sesion.usuario));
       sheet.getRange(fila.row, TICKETS_COLS.FECHA_TOMADO).setValue(new Date());
       cacheInvalidarSimple_(CACHE_KEYS.RESUMEN_INICIO);
-      return { exito: true, mensaje: "Pedido tomado" };
+      return { exito: true, mensaje: "Orden tomada" };
     } finally {
       try { lock.releaseLock(); } catch (e) {}
     }
@@ -887,7 +887,7 @@ function marcarTicketListo(token, ticketId) {
       sheet.getRange(fila.row, TICKETS_COLS.FECHA_LISTO).setValue(new Date());
       sheet.getRange(fila.row, TICKETS_COLS.TIEMPO_PREP_SEG).setValue(tiempoPrep);
       cacheInvalidarSimple_(CACHE_KEYS.RESUMEN_INICIO);
-      return { exito: true, mensaje: "Pedido LISTO para entregar", tiempoPrep: tiempoPrep };
+      return { exito: true, mensaje: "Orden LISTA para entregar", tiempoPrep: tiempoPrep };
     } finally {
       try { lock.releaseLock(); } catch (e) {}
     }

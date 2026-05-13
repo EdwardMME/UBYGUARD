@@ -644,18 +644,18 @@
         </template>
       </div>
 
-      <!-- Pickup hoy: indicadores operativos del módulo de pedidos -->
+      <!-- Picking hoy: indicadores operativos del módulo de pedidos -->
       <div class="card p-5 animate-fadeIn">
         <div class="flex items-start justify-between mb-4 gap-3 flex-wrap">
           <div>
             <h3 class="section-title flex items-center gap-2">
-              <i data-lucide="clipboard-list" class="w-5 h-5 text-red-600"></i> Pickup hoy
+              <i data-lucide="clipboard-list" class="w-5 h-5 text-red-600"></i> Picking hoy
             </h3>
             <p class="text-sm text-slate-500 dark:text-slate-400">Estado en vivo de la preparación de pedidos</p>
           </div>
           <div class="flex gap-2">
-            <button x-show="puedeVer('AGENTE')" @click="navegar('pedidos')" class="btn btn-soft btn-sm">Ir a Pedidos</button>
-            <button @click="navegar('pickup')" class="btn btn-soft btn-sm">Ir a Pickup</button>
+            <button x-show="puedeVer('AGENTE')" @click="navegar('pedidos')" class="btn btn-soft btn-sm">Ir a Pool</button>
+            <button @click="navegar('pickup')" class="btn btn-soft btn-sm">Ir a Picking</button>
           </div>
         </div>
         <div class="grid grid-cols-2 lg:grid-cols-6 gap-3">
@@ -805,9 +805,9 @@
           <div>
             <h3 class="section-title flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-red-600"><path d="M16 2H8a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z"/><path d="m9 12 2 2 4-4"/></svg>
-              Pedidos (revisión de agente)
+              Pool de órdenes (revisión de agente)
             </h3>
-            <p class="text-sm text-slate-500 dark:text-slate-400">Cotizaciones SAP del día · clasifica y envía a Pickup</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Cotizaciones SAP del día · clasifica y envía a Picking</p>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
             <label class="text-xs uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400" title="Muestra OV/OT desde esta fecha en adelante">Desde</label>
@@ -840,7 +840,7 @@
           </div>
           <div x-show="pedidosAgente.cargando" class="text-center py-6 text-slate-400">Cargando…</div>
           <div x-show="!pedidosAgente.cargando && (pedidosAgente.pendientes || []).length === 0" class="text-center py-6 text-slate-400 text-sm">
-            Sin pedidos pendientes para esta fecha
+            Sin órdenes pendientes para esta fecha
           </div>
           <div x-show="!pedidosAgente.cargando && (pedidosAgente.pendientes || []).length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <template x-for="p in (pedidosAgente.pendientes || [])" :key="p.ticketId">
@@ -868,11 +868,11 @@
         <!-- Sección: enviados a pickup (avance) -->
         <div>
           <div class="flex items-center gap-2 mb-3">
-            <h4 class="text-sm font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">📦 Enviados a Pickup</h4>
+            <h4 class="text-sm font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">📦 Enviados a Picking</h4>
             <span class="chip chip-mute text-[10px]" x-text="(pedidosAgente.enviados || []).length + ' OT/OV'"></span>
           </div>
           <div x-show="!pedidosAgente.cargando && (pedidosAgente.enviados || []).length === 0" class="text-center py-6 text-slate-400 text-sm">
-            Aún no has enviado pedidos a pickup hoy
+            Aún no has enviado órdenes a Picking hoy
           </div>
           <div x-show="(pedidosAgente.enviados || []).length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <template x-for="p in (pedidosAgente.enviados || [])" :key="p.ticketId">
@@ -912,9 +912,9 @@
           <div>
             <h3 class="section-title flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-red-600"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6"/><path d="M9 16h6"/></svg>
-              Pickup
+              Picking
             </h3>
-            <p class="text-sm text-slate-500 dark:text-slate-400">Pedidos enviados a preparación por el agente · SP0002</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Órdenes enviadas a preparación por el agente · SP0002</p>
           </div>
           <div class="flex items-center gap-2">
             <label class="text-xs uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400" title="Muestra pickups desde esta fecha en adelante">Desde</label>
@@ -1065,7 +1065,7 @@
           <!-- AGENTE · PENDIENTE_REVISION: enviar a pickup -->
           <button @click="enviarAPickupDesdePreview()" x-show="sesion.rol === 'AGENTE' && pedidos.previewAbierto?.estado === 'PENDIENTE_REVISION'" class="btn btn-primary flex-1 text-base !py-3">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-            Enviar a Pickup
+            Enviar a Picking
           </button>
           <!-- AGENTE · ABIERTO sin auxiliar: devolver a revisión -->
           <button @click="devolverARevisionDesdePreview()"
@@ -1079,7 +1079,7 @@
                   x-show="pedidos.previewAbierto?.estado === 'ABIERTO' && sesion.rol !== 'AGENTE'"
                   class="btn btn-primary flex-1 text-base !py-3">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
-            Yo tomo este pedido
+            Yo tomo esta orden
           </button>
         </div>
       </div>
@@ -1206,7 +1206,7 @@
           <button @click="cerrarDetalleTrabajo()" class="btn btn-ghost">Cerrar (sin terminar)</button>
           <button @click="marcarListo()" :disabled="lineasPendientes().length > 0" class="btn btn-primary text-base !py-3 !px-6">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-            Marcar pedido LISTO
+            Marcar orden LISTO
           </button>
         </div>
       </div>
@@ -2280,8 +2280,8 @@
 
       navTodos: [
         { id: 'menu',       label: 'Menú',             icono: 'layout-dashboard', rol: 'AUXILIAR' },
-        { id: 'pedidos',    label: 'Pedidos',          icono: 'clipboard-check',  rol: 'AGENTE' },
-        { id: 'pickup',     label: 'Pickup',           icono: 'clipboard-list',   rol: 'AUXILIAR' },
+        { id: 'pedidos',    label: 'Pool de órdenes',          icono: 'clipboard-check',  rol: 'AGENTE' },
+        { id: 'pickup',     label: 'Picking',           icono: 'clipboard-list',   rol: 'AUXILIAR' },
         { id: 'buscador',   label: 'Buscador',         icono: 'search',           rol: 'COMERCIAL' },
         { id: 'individual', label: 'Ingreso Individual', icono: 'package-plus',   rol: 'AUXILIAR' },
         { id: 'escaneo',    label: 'Captura Masiva',   icono: 'list-plus',        rol: 'AUXILIAR' },
@@ -3214,7 +3214,7 @@
       devolverARevisionDesdePreview() {
         const t = this.pedidos.previewAbierto;
         if (!t) return;
-        if (!confirm('¿Devolver ' + (t.docType || 'OV') + '-' + t.docNum + ' a revisión? El auxiliar dejará de verlo en Pickup.')) return;
+        if (!confirm('¿Devolver ' + (t.docType || 'OV') + '-' + t.docNum + ' a revisión? El auxiliar dejará de verlo en Picking.')) return;
         this.rpc('devolverARevision', t.ticketId).then(res => {
           if (res && res.exito) {
             this.toast('Devuelto a revisión', 'ok');
@@ -3246,10 +3246,10 @@
         if (!t) return;
         const incluidas = (this.pedidos.previewLineas || []).filter(l => l.incluida).length;
         if (incluidas === 0) { this.toast('Debes incluir al menos una línea', 'warn'); return; }
-        if (!confirm('¿Enviar ' + (t.docType || 'OV') + '-' + t.docNum + ' a Pickup con ' + incluidas + ' líneas?')) return;
+        if (!confirm('¿Enviar ' + (t.docType || 'OV') + '-' + t.docNum + ' a Picking con ' + incluidas + ' líneas?')) return;
         this.rpc('enviarAPickup', t.ticketId).then(res => {
           if (res && res.exito) {
-            this.toast('Enviado a Pickup · ' + res.items + ' items', 'ok');
+            this.toast('Enviado a Picking · ' + res.items + ' items', 'ok');
             this.cerrarPreview();
             this.cargarPedidosRevision();
           } else {
@@ -3356,7 +3356,7 @@
         if (!t) return;
         this.rpc('tomarTicket', t.ticketId).then(res => {
           if (res && res.exito) {
-            this.toast('Pedido tomado · contador iniciado', 'ok');
+            this.toast('Orden tomada · contador iniciado', 'ok');
             this.cerrarPreview();
             this.cargarPedidos();
             // Re-cargar detalle y abrir vista de trabajo
@@ -3476,10 +3476,10 @@
         if (!t) return;
         const pend = this.lineasPendientes();
         if (pend.length > 0) { this.toast('Faltan ' + pend.length + ' items por resolver', 'warn'); return; }
-        if (!confirm('¿Marcar pedido como LISTO para entregar?')) return;
+        if (!confirm('¿Marcar orden como LISTO para entregar?')) return;
         this.rpc('marcarTicketListo', t.ticketId).then(res => {
           if (res && res.exito) {
-            this.toast('Pedido LISTO · tiempo: ' + this.formatoContador(res.tiempoPrep), 'ok');
+            this.toast('Orden LISTO · tiempo: ' + this.formatoContador(res.tiempoPrep), 'ok');
             this.cerrarDetalleTrabajo();
           } else {
             this.toast(res && res.mensaje || 'Error', 'err');
@@ -3488,7 +3488,7 @@
       },
 
       marcarEntregado(ticket) {
-        if (!confirm('¿Confirmas que el cliente retiró el pedido ' + (ticket.docType || 'OV') + '-' + ticket.docNum + '?')) return;
+        if (!confirm('¿Confirmas que el cliente retiró la orden ' + (ticket.docType || 'OV') + '-' + ticket.docNum + '?')) return;
         this.rpc('marcarTicketEntregado', ticket.ticketId).then(res => {
           if (res && res.exito) {
             this.toast('Entregado al cliente', 'ok');
@@ -3624,8 +3624,8 @@
         const baseTodos = [
           { titulo: 'Ir al Menú',            subtitulo: 'Dashboard principal',          icono: 'layout-dashboard', atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('menu') },
           { titulo: 'Buscador',              subtitulo: 'Consultar DATA_SAP',           icono: 'search',           atajo: '/', rol: 'AUXILIAR', accion: () => this.navegar('buscador') },
-          { titulo: 'Pedidos',               subtitulo: 'Cotizaciones SAP por día · clasifica y manda a pickup', icono: 'clipboard-check', atajo: '', rol: 'AGENTE', accion: () => this.navegar('pedidos') },
-          { titulo: 'Pickup',                subtitulo: 'Preparar pedidos enviados por el agente', icono: 'clipboard-list', atajo: '', rol: 'AUXILIAR', accion: () => this.navegar('pickup') },
+          { titulo: 'Pool de órdenes',               subtitulo: 'Cotizaciones SAP por día · clasifica y manda a pickup', icono: 'clipboard-check', atajo: '', rol: 'AGENTE', accion: () => this.navegar('pedidos') },
+          { titulo: 'Picking',                subtitulo: 'Preparar órdenes enviadas por el agente', icono: 'clipboard-list', atajo: '', rol: 'AUXILIAR', accion: () => this.navegar('pickup') },
           { titulo: 'Ingreso individual',    subtitulo: 'Registrar un movimiento',      icono: 'package-plus',     atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('individual') },
           { titulo: 'Captura masiva',        subtitulo: 'Carrito de movimientos por scanner HID o tipeo', icono: 'list-plus',  atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('escaneo') },
           { titulo: 'Ingreso masivo',        subtitulo: 'Preparar trabajo desde documento', icono: 'layers',       atajo: '',  rol: 'AUXILIAR', accion: () => this.navegar('masivo') },
