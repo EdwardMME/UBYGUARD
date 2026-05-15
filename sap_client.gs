@@ -19,6 +19,15 @@ const SAP_API_BASE = "https://sap-api.eugeniachat.ai";
 const SAP_WAREHOUSE = "SPS0002"; // Almacén Platino Motors SPS — confirmado por Andre
 const SAP_PROP_KEY = "UBY_SAP_API_KEY";
 
+// Feature flag: OT (work-orders) está en off hasta que Andre publique el endpoint.
+// Cambiar a true ejecutando habilitarOT() desde el editor cuando Andre confirme.
+// Calendario: 20/05/2026 build · 22/05/2026 listo para integrar (ref: docs/Respuesta-API-UBYGUARD).
+const OT_ENABLED_PROP_KEY = "UBY_OT_ENABLED";
+
+function sapOTHabilitado_() {
+  return PropertiesService.getScriptProperties().getProperty(OT_ENABLED_PROP_KEY) === "true";
+}
+
 /**
  * Lee la API key desde PropertiesService. Lanza si no está configurada.
  * Para configurarla por primera vez, ejecuta sapConfigurarApiKey_() desde
@@ -191,6 +200,26 @@ function sapVerificarApiKey() {
   const msg = "✅ Configurada (longitud: " + k.length + " chars, prefijo: " + k.substring(0, 8) + "...)";
   console.log(msg);
   return msg;
+}
+
+/**
+ * Habilita el feature OT (botón Sync OT visible en UI + permite llamadas al endpoint).
+ * Ejecutar SOLO cuando Andre confirme que /api/ubyguard/work-orders está vivo.
+ * Run → habilitarOT desde el editor.
+ */
+function habilitarOT() {
+  PropertiesService.getScriptProperties().setProperty(OT_ENABLED_PROP_KEY, "true");
+  console.log("✅ OT habilitado. Refresca la webapp y el botón Sync OT aparecerá.");
+  return "OT habilitado.";
+}
+
+/**
+ * Deshabilita OT (oculta botón Sync OT). Útil si Andre debe pausar el endpoint.
+ */
+function deshabilitarOT() {
+  PropertiesService.getScriptProperties().deleteProperty(OT_ENABLED_PROP_KEY);
+  console.log("OT deshabilitado.");
+  return "OT deshabilitado.";
 }
 
 /**

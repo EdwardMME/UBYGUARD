@@ -134,6 +134,14 @@ function instalarTriggerSyncTickets() {
  */
 function sincronizarOTDesdeSap(opts) {
   try {
+    // Feature flag: si OT no está habilitado, no llamamos al endpoint todavía
+    if (!sapOTHabilitado_()) {
+      return {
+        exito: false,
+        pendienteAndre: true,
+        mensaje: "OT aún no habilitado. Andre confirmará vía sapOTHabilitado_ cuando esté vivo (calendario: 20-22/05/2026)."
+      };
+    }
     const o = opts || {};
     const t0 = Date.now();
     const filtros = { status: o.status || "open", limit: 200 };

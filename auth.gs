@@ -279,6 +279,17 @@ function obtenerUsuariosLogin() {
 }
 
 /**
+ * Devuelve los feature flags al frontend para que ajuste la UI.
+ * Hoy expone: `ot` (true si Andre habilitó el endpoint /work-orders).
+ * No requiere token — los flags son globales y no leak info sensible.
+ */
+function obtenerFeatureFlags() {
+  return {
+    ot: sapOTHabilitado_()
+  };
+}
+
+/**
  * Verifica si el token sigue vivo. Útil en el arranque del frontend.
  * NO renueva el token (eso lo hace conSesion_ por RPC con actividad real).
  * Si renovara aquí, un token filtrado podría sostenerse indefinidamente por polling.
