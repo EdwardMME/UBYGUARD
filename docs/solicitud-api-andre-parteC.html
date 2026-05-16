@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>UBYGUARD · Solicitudes API · Parte C</title>
+<style>
+  @page { size: Letter; margin: 18mm 16mm 18mm 16mm; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1f2937;
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+  h1 { font-size: 22pt; margin: 0 0 4pt; color: #b91c1c; }
+  h2 { font-size: 14pt; margin: 18pt 0 8pt; color: #b91c1c; border-bottom: 1.5pt solid #fecaca; padding-bottom: 3pt; }
+  h3 { font-size: 12pt; margin: 14pt 0 6pt; color: #374151; }
+  p  { margin: 0 0 8pt; }
+  ul, ol { margin: 0 0 10pt 18pt; padding: 0; }
+  li { margin-bottom: 4pt; }
+  code, pre, .mono { font-family: "Consolas", "SF Mono", "Menlo", monospace; font-size: 9.5pt; }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 10pt 12pt;
+    border-radius: 4pt;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 6pt 0 10pt;
+    page-break-inside: avoid;
+  }
+  .json-key    { color: #fcd34d; }
+  .json-str    { color: #86efac; }
+  .json-num    { color: #fda4af; }
+  .json-bool   { color: #67e8f9; }
+  .badge {
+    display: inline-block;
+    padding: 1pt 6pt;
+    border-radius: 3pt;
+    background: #fef2f2;
+    color: #b91c1c;
+    font-size: 8pt;
+    font-weight: bold;
+    letter-spacing: .5pt;
+    text-transform: uppercase;
+    border: 0.5pt solid #fecaca;
+  }
+  .badge-followup { background: #fff7ed; color: #92400e; border-color: #fdba74; }
+  .cover {
+    border-left: 4pt solid #b91c1c;
+    padding-left: 14pt;
+    margin-bottom: 16pt;
+  }
+  .meta-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 4pt 0 16pt;
+    font-size: 10pt;
+  }
+  .meta-table td {
+    padding: 4pt 8pt;
+    border-bottom: 0.5pt solid #e5e7eb;
+  }
+  .meta-table td:first-child {
+    font-weight: bold;
+    color: #6b7280;
+    width: 32%;
+    text-transform: uppercase;
+    font-size: 8.5pt;
+    letter-spacing: .5pt;
+  }
+  .callout {
+    background: #fff7ed;
+    border-left: 3pt solid #f59e0b;
+    padding: 8pt 12pt;
+    margin: 8pt 0 12pt;
+    border-radius: 0 3pt 3pt 0;
+    font-size: 10pt;
+  }
+  .callout.info { background: #eff6ff; border-color: #3b82f6; }
+  .callout.ok   { background: #ecfdf5; border-color: #10b981; }
+  table.params {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 4pt 0 12pt;
+    font-size: 9.5pt;
+  }
+  table.params th, table.params td {
+    border: 0.5pt solid #d1d5db;
+    padding: 5pt 7pt;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.params th {
+    background: #f9fafb;
+    font-size: 8.5pt;
+    text-transform: uppercase;
+    letter-spacing: .4pt;
+    color: #6b7280;
+  }
+  table.params td.mono { font-family: "Consolas", monospace; font-size: 9pt; color: #1f2937; }
+  .small { font-size: 9pt; color: #6b7280; }
+  footer {
+    position: fixed;
+    bottom: 8mm;
+    left: 16mm;
+    right: 16mm;
+    font-size: 8pt;
+    color: #9ca3af;
+    border-top: 0.5pt solid #e5e7eb;
+    padding-top: 4pt;
+    display: flex;
+    justify-content: space-between;
+  }
+  .priority {
+    display: inline-block;
+    padding: 1pt 5pt;
+    border-radius: 3pt;
+    font-size: 8pt;
+    font-weight: bold;
+    margin-left: 6pt;
+    vertical-align: middle;
+  }
+  .priority-alta { background: #fef2f2; color: #b91c1c; border: 0.5pt solid #fecaca; }
+  .priority-media { background: #fff7ed; color: #92400e; border: 0.5pt solid #fdba74; }
+  .priority-baja { background: #f0f9ff; color: #075985; border: 0.5pt solid #bae6fd; }
+</style>
+</head>
+<body>
+
+<footer>
+  <span>UBYGUARD · Solicitudes API · Parte C · Distribuidora Platino</span>
+  <span>Eduardo Mejía → Andre Lopez</span>
+</footer>
+
+<div class="cover">
+  <span class="badge badge-followup">Follow-up · Parte C</span>
+  <h1>Lag del espejo SAP y refresh on-demand</h1>
+  <p class="small">Continuación de las solicitudes técnicas — tres puntos que quedaron sin respuesta en el documento del 15/05/2026.</p>
+</div>
+
+<table class="meta-table">
+  <tr><td>Para</td><td>Andre Lopez · API SAP B1 · Grupo Platino</td></tr>
+  <tr><td>De</td><td>Eduardo Mejía · Distribuidora Platino (UBYGUARD)</td></tr>
+  <tr><td>Fecha</td><td>16 / mayo / 2026</td></tr>
+  <tr><td>Asunto</td><td>Tres preguntas operativas sobre el espejo SAP que no quedaron cubiertas en tu respuesta del 15/05</td></tr>
+  <tr><td>Referencia previa</td><td><code>docs/solicitudes-api-andre.pdf</code> (Eduardo, 12/05) · <code>docs/Respuesta-API-UBYGUARD.pdf</code> (Andre, 15/05)</td></tr>
+  <tr><td>API base</td><td><code>https://sap-api.eugeniachat.ai</code></td></tr>
+</table>
+
+<div class="callout info">
+  <b>Contexto:</b> Tu respuesta del 15/05 cerró perfecto las dos partes técnicas (<code>/work-orders</code> y <code>/items</code>) y dejó claro el calendario. En la solicitud original mencionamos 3 puntos operativos vinculados al hecho de que la API es <b>un espejo de SAP</b>, no live — esos quedaron sin respuesta. Te los repaso acá compactos.
+</div>
+
+<h2>1 · Política de refresh del espejo <span class="priority priority-alta">Alta</span></h2>
+
+<p><b>El caso real:</b> el 12/05 el vendedor creó una cotización en SAP, hicimos <code>Sync OV</code> ese mismo día y no apareció en UBYGUARD. Tu espejo todavía no la había recogido de SAP. Resultó en confusión operativa porque del lado de UBYGUARD el toast decía "OK", sin pista del lag.</p>
+
+<p><b>Lo que necesitamos saber:</b></p>
+
+<ul>
+  <li>¿Cada cuánto se actualiza tu espejo contra SAP? (cron horario / cada 15 min / on-demand / event-driven)</li>
+  <li>¿Es la misma cadencia para todos los endpoints (<code>/quotations</code>, <code>/items</code>, <code>/work-orders</code>) o varía por dataset?</li>
+  <li>¿Hay un SLA de "data freshness máximo"? (p. ej. "nunca más de 1h desfasado")</li>
+</ul>
+
+<p><b>Por qué importa:</b> sin esta info no podemos darle al agente expectativas claras. Hoy le decimos "los datos son de SAP" cuando en realidad son "de SAP hace X tiempo".</p>
+
+<h2>2 · Campo <code>meta.dataAsOf</code> en cada respuesta <span class="priority priority-alta">Alta</span></h2>
+
+<p>Independientemente de la respuesta al punto 1, el fix más limpio es que cada respuesta exponga <b>el timestamp del último pull contra SAP</b> en el bloque <code>meta</code>. Así UBYGUARD muestra en UI "Datos SAP de hace X minutos" y el agente decide si necesita esperar.</p>
+
+<p><b>Propuesta de cambio en el shape:</b></p>
+
+<pre>{
+  <span class="json-key">"data"</span>: [ ... ],
+  <span class="json-key">"meta"</span>: {
+    <span class="json-key">"total"</span>: <span class="json-num">198</span>,
+    <span class="json-key">"limit"</span>: <span class="json-num">200</span>,
+    <span class="json-key">"offset"</span>: <span class="json-num">0</span>,
+    <span class="json-key">"warehouse"</span>: <span class="json-str">"SPS0002"</span>,
+    <span class="json-key">"dataAsOf"</span>: <span class="json-str">"2026-05-16T14:23:00-06:00"</span>,
+    <span class="json-key">"sourceLagSeconds"</span>: <span class="json-num">312</span>
+  }
+}</pre>
+
+<table class="params">
+  <tr><th>Campo</th><th>Tipo</th><th>Descripción</th></tr>
+  <tr><td class="mono">dataAsOf</td><td>ISO 8601 con tz</td><td>Timestamp del último pull desde SAP que generó la respuesta actual. Si tu espejo cachea, es el timestamp del pull, no el del request.</td></tr>
+  <tr><td class="mono">sourceLagSeconds</td><td>int</td><td><i>Opcional</i>. Cuántos segundos hace que se hizo ese pull. Si lo expones, evita que UBYGUARD calcule por su lado y desincronice por timezone.</td></tr>
+</table>
+
+<p><b>Aplica a:</b> <code>/quotations</code>, <code>/quotations/{docNum}</code>, <code>/items</code>, <code>/items/{itemCode}/stock</code>, <code>/work-orders</code>, <code>/business-partners/{cardCode}</code>. Idealmente uniforme en todos los endpoints.</p>
+
+<h2>3 · Endpoint de refresh forzado por DocNum <span class="priority priority-media">Media</span></h2>
+
+<p>Para casos puntuales donde el agente sabe que SAP ya tiene el cambio (porque el vendedor le acaba de avisar por chat) y no quiere esperar el ciclo del espejo.</p>
+
+<table class="params">
+  <tr><th>Atributo</th><th>Valor propuesto</th></tr>
+  <tr><td>Método · Path</td><td class="mono">POST /api/ubyguard/quotations/{docNum}/refresh</td></tr>
+  <tr><td>Método · Path</td><td class="mono">POST /api/ubyguard/work-orders/{docNum}/refresh</td></tr>
+  <tr><td>Autenticación</td><td><code>X-API-Key</code> (misma)</td></tr>
+  <tr><td>Body</td><td>Vacío</td></tr>
+  <tr><td>Acción</td><td>Disparar un pull inmediato contra SAP solo de ese DocNum + actualizar tu espejo + retornar el detalle actualizado en el body de la respuesta.</td></tr>
+  <tr><td>Rate limit sugerido</td><td>Máx 10 por minuto por API key (es operación cara contra SAP, evitar abuso).</td></tr>
+</table>
+
+<p><b>Shape de respuesta:</b> igual al de <code>/quotations/{docNum}</code> con <code>meta.dataAsOf</code> actualizado al instante del refresh.</p>
+
+<p><b>Justificación operativa:</b> cuando el cliente está físicamente en el almacén y necesitamos confirmar el último estado, esperar 15 min no es opción.</p>
+
+<div class="callout">
+  <b>Si no es factible:</b> con sólo el punto 1 (saber la cadencia) y el punto 2 (<code>dataAsOf</code> en respuesta) ya quedamos cubiertos para 95% de los casos. El force-refresh es un nice-to-have.
+</div>
+
+<h2>4 · Comportamiento esperado del cliente UBYGUARD</h2>
+
+<p>Una vez que respondas, del lado UBYGUARD se hace lo siguiente sin nuevo despliegue:</p>
+
+<ul>
+  <li><b>Punto 1 (cadencia):</b> queda documentado y el agente lo sabe.</li>
+  <li><b>Punto 2 (<code>dataAsOf</code>):</b> en cada vista de Pool de órdenes y Picking aparece un badge tipo <code>"Datos SAP de hace 4 min"</code>. Si excede el SLA, se vuelve amarillo.</li>
+  <li><b>Punto 3 (force-refresh):</b> botón "⚡ Refresh ahora" en el preview de cada OV/OT, solo para AGENTE.</li>
+</ul>
+
+<h2>5 · Resumen ejecutivo</h2>
+
+<table class="params">
+  <tr><th>#</th><th>Pedido</th><th>Prioridad</th><th>Esfuerzo estimado de tu lado</th></tr>
+  <tr><td>1</td><td>Decirme la cadencia de refresh del espejo (texto, no código)</td><td><span class="priority priority-alta">Alta</span></td><td>30 segundos · 1 mensaje</td></tr>
+  <tr><td>2</td><td>Agregar <code>meta.dataAsOf</code> a todas las respuestas</td><td><span class="priority priority-alta">Alta</span></td><td>1–2 h de implementación · 1 línea por endpoint</td></tr>
+  <tr><td>3</td><td>Endpoint POST de force-refresh</td><td><span class="priority priority-media">Media</span></td><td>Medio día · solo si es viable contra SAP</td></tr>
+</table>
+
+<h2>6 · Contacto</h2>
+
+<table class="meta-table">
+  <tr><td>Solicitante</td><td>Eduardo Mejía</td></tr>
+  <tr><td>Email</td><td><code>cramirez@grupoplatino.hn</code></td></tr>
+  <tr><td>Repo público</td><td><code>github.com/EdwardMME/UBYGUARD</code></td></tr>
+  <tr><td>Estado UBYGUARD</td><td>92% global · pickup operativo · esperando <code>/items</code> (18/05) y <code>/work-orders</code> (20/05)</td></tr>
+</table>
+
+<p class="small" style="margin-top: 20pt; text-align: center; color: #9ca3af;">
+  Documento generado por UBYGUARD · 16/05/2026 · Parte C de la conversación técnica
+</p>
+
+</body>
+</html>
